@@ -1,0 +1,13 @@
+# Ignore VS local settings
+.vs/
+*.user
+
+# Ignore build artifacts
+x64/
+Debug/
+*.obj
+*.pdb
+*.log
+*.tlog
+*.ilk
+*.idb
