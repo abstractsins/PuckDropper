@@ -1,4 +1,4 @@
-#include "Grid.hpp"
+#include "Grid.h"
 
 Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f screenSize)
     : cols(cols), rows(rows), spacing(spacing), dotRadius(dotRadius) {
