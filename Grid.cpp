@@ -1,10 +1,13 @@
 #include "Grid.h"
 
-Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f screenSize)
-    : cols(cols), rows(rows), spacing(spacing), dotRadius(dotRadius) {
+Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f screenSize, float padding)
+    : cols(cols), rows(rows), spacing(spacing), dotRadius(dotRadius)
+{
+    float usableWidth = screenSize.x - 2 * padding;
+    float usableHeight = screenSize.y - 2 * padding;
 
-    origin.x = (screenSize.x - (cols - 1) * spacing) / 2.f;
-    origin.y = (screenSize.y - (rows - 1) * spacing) / 2.f;
+    origin.x = padding + (usableWidth - (cols - 1) * spacing) / 2.f;
+    origin.y = padding + (usableHeight - (rows - 1) * spacing) / 2.f;
 }
 
 sf::Vector2f Grid::getDotPosition(int col, int row) const {

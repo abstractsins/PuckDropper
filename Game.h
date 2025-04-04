@@ -2,6 +2,8 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "Grid.h"
+#include "Puck.h"
+
 
 class Game {
 public:
@@ -10,12 +12,13 @@ public:
 
 private:
     void processEvents();
-    void update();
+    void update(float dt);
     void render();
     void handleResize();
 
-private:
     sf::RenderWindow window;
     sf::View view;
+    sf::Clock clock;
     Grid grid;
+    Puck puck;
 };
