@@ -1,27 +1,46 @@
 #include "Game.h"
+#include "UIManager.h"
+#include "Colors.h"
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <iostream>
 
+
 Game::Game()
-	: window(sf::VideoMode(sf::Vector2u{ 800, 800 }), "Puck Dropper"),
-	view(sf::Vector2f{ 400.f, 300.f }, sf::Vector2f{ 800.f, 800.f }),
-	grid(7, 10, 60.f, 3.f, sf::Vector2f{ 800.f, 600.f }, 0.f),
-	puck(12.f, sf::Vector2f(250.f, 0.f))  // tweak position later
+	: window(sf::VideoMode({ 800, 800 }), "Puck Dropper"),
+	view({ 400.f, 300.f }, sf::Vector2f{ 800.f, 800.f }),
+	grid(14, 20, 30.f, 1.5, sf::Vector2f{ 800.f, 800.f }, 0.f),
+	puck(6.f, startingPos),
+	mainMenuMusic("symphbass.wav")
 {
-	window.setView(view);
+	initFont();
+	// Start in Main Menu mode.
+	initMainMenuUI();
 }
 
 void Game::run() {
 	while (window.isOpen()) {
 		float dt = clock.restart().asSeconds();
 		processEvents();
-		update(dt);
+
+		// Only update the puck if the simulation has started.
+		if (currentMode != Mode::MainMenu && currentMode != Mode::About && simulationStarted) {
+			puck.update(dt, grid, allowPuckCollision);
+			if (isPuckOutOfBounds() == true) {
+				puck.reset(startingPos);
+			}
+		}
+
 		render();
 	}
 }
 
+
 void Game::processEvents() {
+	uiManager.update(window);
+
 	while (auto event = window.pollEvent()) {
+
 		if (event->is<sf::Event::Closed>())
 			window.close();
 
@@ -29,8 +48,28 @@ void Game::processEvents() {
 			handleResize();
 		}
 
+		if (event->is<sf::Event::MouseButtonPressed>()) {
+			sf::Vector2i pixel = sf::Mouse::getPosition(window);
+			sf::Vector2f worldPos = window.mapPixelToCoords(pixel, window.getView());
+			handleMouseClick(worldPos);
+		}
+
+		uiManager.handleEvent(*event, window);
 	}
 }
+
+
+void Game::handleMouseClick(const sf::Vector2f& pos) {
+	std::cout << "\nMouse world pos: (" << pos.x << ", " << pos.y << ")\n";
+	if (uiManager.handleClick(pos)) {
+		return;
+	}
+	if (grid.handleClick(pos)) {
+		std::cout << "grid called\n";
+		return;
+	}
+}
+
 
 void Game::handleResize() {
 	// set screen size
@@ -56,19 +95,293 @@ void Game::handleResize() {
 }
 
 void Game::update(float dt) {
-	puck.update(dt);  // Use the delta time to update physics
+	// If in simulation mode, update simulation UI elements (e.g. toggle button for free form).
+	if (currentMode != Mode::About && currentMode != Mode::MainMenu) {
+		// For Free Form mode, update the toggle button appearance.
+		if (currentMode == Mode::FreeForm) {
+			togglePuckCollisionButton.update(window);
+		}
+	}
+}
 
+bool Game::isPuckOutOfBounds() {
 	// Reset if the puck falls out of view
 	const float screenBottom = 800.f;
-	if (puck.getPosition().y > screenBottom + 50.f) {
-		puck.reset({ 250.f, 0.f }); // or any starting position you prefer
+	const float screenLeft = 0.f;
+	const float screenRight = 800.f;
+	if (
+		puck.getPosition().y > screenBottom + 50.f
+		|| puck.getPosition().x > screenRight
+		|| puck.getPosition().x < screenLeft ) {
+		return true;
 	}
+	return false;
 }
 
 
 void Game::render() {
 	window.clear(sf::Color::Black);
-	grid.draw(window);
-	puck.draw(window);
+
+	if (currentMode == Mode::MainMenu || currentMode == Mode::About) {
+		// Draw the background image first if available.
+		if (menuBackgroundSprite) {
+			window.draw(*menuBackgroundSprite);
+		}
+		// Title
+		sf::Text titleText(titleFont, "Puck Dropper", 88);
+		titleText.setPosition({ 100.f, 50.f });
+		titleText.setFillColor(sf::Color::Yellow);
+		titleText.setOutlineColor(sf::Color::Black); 
+		titleText.setOutlineThickness(0.5); 
+		window.draw(titleText);
+
+		// Created By
+		sf::Text createdByText(uiFont, "Created by Daniel Berlin, 2025", 16);
+		createdByText.setPosition({ 550.f, 700.f });
+		createdByText.setFillColor(Colors::Whitesmoke);
+		createdByText.setOutlineColor(sf::Color::Black);
+		createdByText.setOutlineThickness(0.5);
+		window.draw(createdByText);
+	}
+	else {
+		// Simulation mode drawing.
+		grid.draw(window);
+		puck.draw(window);
+		resetButton.draw(window);
+		startButton.draw(window);
+		if (currentMode == Mode::FreeForm) {
+			togglePuckCollisionButton.draw(window);
+			togglePuckBreakButton.draw(window);
+		}
+		returnToMenuButton.draw(window);
+	}
+
+	if (currentMode == Mode::MainMenu) {
+		// Then draw the main menu buttons.
+		window.draw(menuContainer);
+		freeModeButton.draw(window);
+		scoringModeButton.draw(window);
+		rulesModeButton.draw(window);
+		musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
+		musicButton.draw(window);
+	} 
+	else if (currentMode == Mode::About) {
+		returnToMenuButton.draw(window);
+		// display rules
+	}
+
 	window.display();
+}
+
+
+//
+// UI initialization functions:
+//
+void Game::initUI() {
+	initFont();
+	initUIButtons();
+}
+
+void Game::initFont() {
+	if (!uiFont.openFromFile("Tuffy.ttf")) {
+		std::cerr << "Failed to open Tuffy.ttf\n";
+	}
+	if (!titleFont.openFromFile("RubikGlitch.ttf")) {
+		std::cerr << "Failed to open RubikGlitch.ttf\n";
+	}
+}
+
+void Game::initUIButtons() {
+	// Initialize simulation UI buttons.
+	initResetButton();
+	// (Existing toggle button for FreeForm mode gets added only if applicable.)
+	if (currentMode == Mode::FreeForm) {
+
+		togglePuckCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Puck Collision: OFF", uiFont, [this]() {
+			togglePuckCollisionButton.toggled = !togglePuckCollisionButton.toggled;
+			allowPuckCollision = togglePuckCollisionButton.toggled; // mirror that externally
+			std::string text = togglePuckCollisionButton.toggled ? "Puck Collision: ON" : "Puck Collision: OFF";
+			togglePuckCollisionButton.setText(text);
+			// Optionally update appearance here:
+			togglePuckCollisionButton.shape.setFillColor(togglePuckCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+		});
+		togglePuckCollisionButton.toggled = false;
+		togglePuckCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
+		uiManager.addButton(togglePuckCollisionButton);
+
+		togglePuckBreakButton = Button(sf::Vector2(150.f, 40.f), "Puck Break: OFF", uiFont, [this]() {
+			togglePuckBreakButton.toggled = !togglePuckBreakButton.toggled;
+			allowPuckBreak = togglePuckBreakButton.toggled; // mirror that externally
+			std::string text = togglePuckBreakButton.toggled ? "Puck Break: ON" : "Puck Break: OFF";
+			togglePuckBreakButton.setText(text);
+			// Optionally update appearance here:
+			togglePuckBreakButton.shape.setFillColor(togglePuckBreakButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+		});
+		togglePuckBreakButton.toggled = false;
+		togglePuckBreakButton.setPosition(sf::Vector2f(20.f, 200.f));
+		uiManager.addButton(togglePuckBreakButton);
+
+	}
+	initReturnToMenuButton();
+
+	startButton = Button(sf::Vector2f(100.f, 40.f), "Start", uiFont, [this]() {
+		startSimulation();
+		startButton.setText("Running...");
+		startButton.shape.setFillColor(Colors::ForestGreen);
+	});
+	// Place the start button at an appropriate position (for example, next to Reset).
+	startButton.setPosition(sf::Vector2f(20.f, 70.f));
+	uiManager.addButton(startButton);
+}
+
+void Game::initResetButton() {
+	// Create a new reset button using our Button class.
+	// The callback here resets the puck when the button is clicked.
+	resetButton = Button(sf::Vector2f(100.f, 40.f), "Reset", uiFont, [this]() {
+		gameReset();
+	});
+	resetButton.setPosition(sf::Vector2f(20.f, 20.f));
+	resetButton.setFillColor(Colors::LightRed);
+	uiManager.addButton(resetButton);
+}
+
+void Game::initReturnToMenuButton() {
+	returnToMenuButton = Button(sf::Vector2f(100.f, 40.f), "Menu", uiFont, [this]() {
+		enterMainMenu();
+	});
+	returnToMenuButton.setPosition(sf::Vector2f(20.f, 520.f));
+	uiManager.addButton(returnToMenuButton);
+}
+
+//
+// Main Menu UI initialization:
+//
+void Game::initMainMenuUI() {
+	mainMenuMusic.setLooping(true);
+	mainMenuMusic.play();
+
+	// Clear existing buttons from the UI.
+	uiManager.clearButtons();
+
+	// --- CONTAINER SETUP ---
+	// Decide how big you want the container
+	float containerWidth = 300.f;
+	float containerHeight = 300.f;
+	menuContainer.setSize(sf::Vector2f({ containerWidth, containerHeight }));
+
+	// Fill color (semi-transparent dark overlay). Adjust RGBA to your preference.
+	menuContainer.setFillColor(sf::Color(0, 0, 0, 150));
+	// Optional: Outline color and thickness
+	menuContainer.setOutlineThickness(2.f);
+	menuContainer.setOutlineColor(sf::Color::White);
+
+	// Center the container. We set the shape's origin to its midpoint,
+	// and then position it at the window center.
+	menuContainer.setOrigin({ containerWidth / 2.f, containerHeight / 2.f });
+	float windowWidth = static_cast<float>(window.getSize().x);
+	float windowHeight = static_cast<float>(window.getSize().y);
+	//menuContainer.setPosition({ windowWidth / 2.f, windowHeight / 2.f });
+	menuContainer.setPosition({ 400.f, 400.f });
+
+	// Load the background image (menuBG.jpg).
+	if (!menuBackgroundTexture.loadFromFile("menuBG.jpg")) {
+		std::cerr << "Error loading menuBG.jpg" << std::endl;
+	}
+
+	// Construct the sprite using the loaded texture.
+	menuBackgroundSprite = std::make_unique<sf::Sprite>(menuBackgroundTexture);
+	menuBackgroundSprite->setColor(sf::Color(255, 255, 255, 100));
+
+	// Obtain the local bounds of the sprite.
+	sf::FloatRect spriteBounds = menuBackgroundSprite->getLocalBounds();
+
+	// Calculate the scale factor so that the sprite's width becomes exactly the window's width.
+	float scaleFactor = windowWidth / spriteBounds.size.x;
+
+	// Apply the uniform scale so that the sprite's width matches 100% of the window.
+	menuBackgroundSprite->setScale({ scaleFactor, scaleFactor });
+
+	// Optionally, center the sprite vertically if its scaled height is less than the window height.
+	float scaledHeight = spriteBounds.size.y * scaleFactor;
+	float yOffset = (windowHeight - scaledHeight) / 2.f;
+	menuBackgroundSprite->setPosition({ 0.f, yOffset });
+
+	// Initialize main menu buttons with updated naming conventions:
+	freeModeButton = Button(sf::Vector2f(200.f, 50.f), "Free Mode", uiFont, [this]() {
+		enterFreeFormMode();
+	});
+	freeModeButton.setPosition(sf::Vector2f(300.f, 300.f));
+	uiManager.addButton(freeModeButton);
+
+	scoringModeButton = Button(sf::Vector2f(200.f, 50.f), "Scoring Mode", uiFont, [this]() {
+		enterScoringMode();
+	});
+	scoringModeButton.setPosition(sf::Vector2f(300.f, 375.f));
+	uiManager.addButton(scoringModeButton);
+
+	rulesModeButton = Button(sf::Vector2f(200.f, 50.f), "About", uiFont, [this]() {
+		enterAboutMode();
+	});
+	rulesModeButton.setPosition(sf::Vector2f(300.f, 450.f));
+	uiManager.addButton(rulesModeButton);
+
+	musicButton = Button(sf::Vector2f(150.f, 50.f), "Music On", uiFont, [this]() {
+		musicButton.toggled = !musicButton.toggled;
+		musicButton.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
+		musicButton.toggled ? mainMenuMusic.setVolume(0.f) : mainMenuMusic.setVolume(100.f);
+		std::string text = musicButton.toggled ? "Music Off" : "Music On";
+		musicButton.setText(text);
+	});
+	musicButton.toggled = false;
+	musicButton.setPosition(sf::Vector2f(575.f, 600.f));
+	uiManager.addButton(musicButton);
+}
+
+
+
+//
+// Mode switching:
+//
+void Game::enterFreeFormMode() {
+	mainMenuMusic.stop();
+	// Remove main menu buttons.
+	uiManager.clearButtons();
+	currentMode = Mode::FreeForm;
+	allowPuckCollision = false;  // Default for free form; user can toggle.
+	// Now initialize simulation UI (reset and toggle buttons).
+	initUIButtons();
+	gameReset();
+}
+
+void Game::enterScoringMode() {
+	mainMenuMusic.stop();
+	uiManager.clearButtons();
+	currentMode = Mode::Scoring;
+	allowPuckCollision = true;  // Always collide in scoring mode.
+	initUIButtons();
+	gameReset();
+}
+
+void Game::enterAboutMode() {
+	uiManager.clearButtons();
+	currentMode = Mode::About;
+	initUIButtons();
+}
+
+void Game::enterMainMenu() {
+	uiManager.clearButtons();
+	currentMode = Mode::MainMenu;
+	initMainMenuUI();
+}
+
+void Game::gameReset() {
+	puck.reset(startingPos);
+	grid.resetGrid();
+	simulationStarted = false;
+	startButton.setText("Start");
+	startButton.shape.setFillColor(Colors::LightGreen);
+}
+
+void Game::startSimulation() {
+	simulationStarted = true;
 }

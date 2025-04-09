@@ -1,14 +1,19 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include "Grid.h"
 
 class Puck {
 public:
     Puck(float radius, sf::Vector2f startPos);
     void draw(sf::RenderWindow& window) const;
-    void update(float dt);
+    void update(float dt, const Grid& grid, bool enableCollision);
     void reset(const sf::Vector2f& position);
     sf::Vector2f getPosition() const { return shape.getPosition(); }
+
 private:
     sf::CircleShape shape;
     sf::Vector2f velocity;
+    bool checkCollisionWithSegment(sf::Vector2f a, sf::Vector2f b, sf::Vector2f segA, sf::Vector2f segB, sf::Vector2f & outNormal);
+    float dot(sf::Vector2f a, sf::Vector2f b);
+
 };
