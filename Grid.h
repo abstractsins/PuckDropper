@@ -21,6 +21,11 @@ public:
     void addConnection(int col1, int row1, int col2, int row2);
     bool handleClick(sf::Vector2f mousePos);
     const std::vector<Connection>& getConnections() const;
+
+    int getCols() const { return cols; }
+    int getRows() const { return rows; }
+    float getDotRadius() const { return dotRadius; }
+
     void resetGrid();
 
 private:

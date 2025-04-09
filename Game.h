@@ -16,6 +16,7 @@ private:
     // Background image for the main menu
     sf::Texture menuBackgroundTexture;
     std::unique_ptr<sf::Sprite> menuBackgroundSprite;
+    //sf::Image icon;
 
     // Starting position for the puck.
     sf::Vector2f startingPos{ 350.f, 80.f };
@@ -35,7 +36,8 @@ private:
     Button startButton;
     
     // Free Mode Options
-    Button togglePuckCollisionButton;
+    Button toggleSegmentCollisionButton;
+    Button toggleDotCollisionButton;
     Button togglePuckBreakButton;
 
     sf::RectangleShape menuContainer;
@@ -53,8 +55,9 @@ private:
     // Mode selection:
     enum class Mode { MainMenu, FreeForm, Scoring, About };
     Mode currentMode = Mode::MainMenu;
-    bool allowPuckCollision = false; // In free mode, user can toggle; in scoring mode, always true.
-    bool allowPuckBreak = false;
+    bool allowSegmentCollision = false; // In free mode, user can toggle; in scoring mode, always true.
+    bool allowDotCollision = false; // In free mode, user can toggle; in scoring mode, always true.
+    bool allowPuckBreak = false; // In free mode, user can toggle; in scoring mode, always true.
     bool simulationStarted = false;
 
     void processEvents();
@@ -82,7 +85,7 @@ private:
     void startSimulation();
 
     void handleMouseClick(const sf::Vector2f& pos);
-    void gameReset();
+    void gameReset(std::string resetType = "full");
     
     Grid grid;
     Puck puck;

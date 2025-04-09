@@ -13,7 +13,13 @@ Game::Game()
 	puck(6.f, startingPos),
 	mainMenuMusic("symphbass.wav")
 {
+	sf::Image icon;
 	initFont();
+	if (!icon.loadFromFile("puck.png")) {
+		std::cout << "icon not found\n\n";
+	}
+	// Set the icon: width, height, and pointer to pixels
+	window.setIcon({ icon.getSize().x, icon.getSize().y }, icon.getPixelsPtr());
 	// Start in Main Menu mode.
 	initMainMenuUI();
 }
@@ -25,7 +31,7 @@ void Game::run() {
 
 		// Only update the puck if the simulation has started.
 		if (currentMode != Mode::MainMenu && currentMode != Mode::About && simulationStarted) {
-			puck.update(dt, grid, allowPuckCollision);
+			puck.update(dt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak);
 			if (isPuckOutOfBounds() == true) {
 				puck.reset(startingPos);
 			}
@@ -47,6 +53,21 @@ void Game::processEvents() {
 		if (event->is<sf::Event::Resized>()) {
 			handleResize();
 		}
+
+		if (event->is<sf::Event::KeyPressed>()) {
+			if (puck.broken()) {
+				gameReset("soft");  // Reset the puck and grid as defined in Game::gameReset() 
+				continue;
+			}
+			else {
+				if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
+					// If Enter is pressed, simulate a start button click.
+					if (keyEvent->code == sf::Keyboard::Key::Enter) {
+						startButton.onClick();
+					}
+				}
+			}
+		}	
 
 		if (event->is<sf::Event::MouseButtonPressed>()) {
 			sf::Vector2i pixel = sf::Mouse::getPosition(window);
@@ -99,7 +120,7 @@ void Game::update(float dt) {
 	if (currentMode != Mode::About && currentMode != Mode::MainMenu) {
 		// For Free Form mode, update the toggle button appearance.
 		if (currentMode == Mode::FreeForm) {
-			togglePuckCollisionButton.update(window);
+			toggleSegmentCollisionButton.update(window);
 		}
 	}
 }
@@ -128,7 +149,7 @@ void Game::render() {
 			window.draw(*menuBackgroundSprite);
 		}
 		// Title
-		sf::Text titleText(titleFont, "Puck Dropper", 88);
+		sf::Text titleText(titleFont, "Puck Dropper", 86);
 		titleText.setPosition({ 100.f, 50.f });
 		titleText.setFillColor(sf::Color::Yellow);
 		titleText.setOutlineColor(sf::Color::Black); 
@@ -150,9 +171,27 @@ void Game::render() {
 		resetButton.draw(window);
 		startButton.draw(window);
 		if (currentMode == Mode::FreeForm) {
-			togglePuckCollisionButton.draw(window);
+			toggleSegmentCollisionButton.draw(window);
+			toggleDotCollisionButton.draw(window);
 			togglePuckBreakButton.draw(window);
 		}
+		if (puck.broken()) {
+			// Reset Prompt By
+			sf::Text userResetPrompt(uiFont, "Press Any Key to Reset Puck", 24);
+			userResetPrompt.setPosition({ 300.f, 35.f });
+			userResetPrompt.setFillColor(Colors::Whitesmoke);
+			userResetPrompt.setOutlineColor(sf::Color::Green);
+			userResetPrompt.setOutlineThickness(0.25);
+			window.draw(userResetPrompt);
+			//userResetPrompt.draw(window);
+		}
+		// collision counter
+		int numCollisions = puck.getCollisions();
+		sf::Text collisionScore(uiFont, "Collisions: " + std::to_string(numCollisions), 18);
+		collisionScore.setPosition({ 500.f, 10.f });
+		collisionScore.setFillColor(Colors::Whitesmoke);
+		window.draw(collisionScore);
+
 		returnToMenuButton.draw(window);
 	}
 
@@ -164,6 +203,8 @@ void Game::render() {
 		rulesModeButton.draw(window);
 		musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
 		musicButton.draw(window);
+		musicButton.setFillColor(musicButton.hover ? sf::Color::Cyan : sf::Color::Black);
+
 	} 
 	else if (currentMode == Mode::About) {
 		returnToMenuButton.draw(window);
@@ -197,17 +238,27 @@ void Game::initUIButtons() {
 	// (Existing toggle button for FreeForm mode gets added only if applicable.)
 	if (currentMode == Mode::FreeForm) {
 
-		togglePuckCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Puck Collision: OFF", uiFont, [this]() {
-			togglePuckCollisionButton.toggled = !togglePuckCollisionButton.toggled;
-			allowPuckCollision = togglePuckCollisionButton.toggled; // mirror that externally
-			std::string text = togglePuckCollisionButton.toggled ? "Puck Collision: ON" : "Puck Collision: OFF";
-			togglePuckCollisionButton.setText(text);
+		toggleSegmentCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Line Collision: OFF", uiFont, [this]() {
+			toggleSegmentCollisionButton.toggled = !toggleSegmentCollisionButton.toggled;
+			allowSegmentCollision = toggleSegmentCollisionButton.toggled; // mirror that externally
+			std::string text = toggleSegmentCollisionButton.toggled ? "Line Collision: ON" : "Line Collision: OFF";
+			toggleSegmentCollisionButton.setText(text);
 			// Optionally update appearance here:
-			togglePuckCollisionButton.shape.setFillColor(togglePuckCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+			toggleSegmentCollisionButton.shape.setFillColor(toggleSegmentCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
 		});
-		togglePuckCollisionButton.toggled = false;
-		togglePuckCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
-		uiManager.addButton(togglePuckCollisionButton);
+		toggleSegmentCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
+		uiManager.addButton(toggleSegmentCollisionButton);
+
+		toggleDotCollisionButton = Button(sf::Vector2(150.f, 40.f), "Dot Collision: OFF", uiFont, [this]() {
+			toggleDotCollisionButton.toggled = !toggleDotCollisionButton.toggled;
+			allowDotCollision = toggleDotCollisionButton.toggled; // mirror that externally
+			std::string text = toggleDotCollisionButton.toggled ? "Dot Collision: ON" : "Dot Collision: OFF";
+			toggleDotCollisionButton.setText(text);
+			// Optionally update appearance here:
+			toggleDotCollisionButton.shape.setFillColor(toggleDotCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+			});
+		toggleDotCollisionButton.setPosition(sf::Vector2f(20.f, 200.f));
+		uiManager.addButton(toggleDotCollisionButton);
 
 		togglePuckBreakButton = Button(sf::Vector2(150.f, 40.f), "Puck Break: OFF", uiFont, [this]() {
 			togglePuckBreakButton.toggled = !togglePuckBreakButton.toggled;
@@ -217,9 +268,10 @@ void Game::initUIButtons() {
 			// Optionally update appearance here:
 			togglePuckBreakButton.shape.setFillColor(togglePuckBreakButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
 		});
-		togglePuckBreakButton.toggled = false;
-		togglePuckBreakButton.setPosition(sf::Vector2f(20.f, 200.f));
+		togglePuckBreakButton.setPosition(sf::Vector2f(20.f, 250.f));
 		uiManager.addButton(togglePuckBreakButton);
+
+
 
 	}
 	initReturnToMenuButton();
@@ -237,7 +289,7 @@ void Game::initUIButtons() {
 void Game::initResetButton() {
 	// Create a new reset button using our Button class.
 	// The callback here resets the puck when the button is clicked.
-	resetButton = Button(sf::Vector2f(100.f, 40.f), "Reset", uiFont, [this]() {
+	resetButton = Button(sf::Vector2f(120.f, 40.f), "Reset Grid", uiFont, [this]() {
 		gameReset();
 	});
 	resetButton.setPosition(sf::Vector2f(20.f, 20.f));
@@ -332,7 +384,6 @@ void Game::initMainMenuUI() {
 		std::string text = musicButton.toggled ? "Music Off" : "Music On";
 		musicButton.setText(text);
 	});
-	musicButton.toggled = false;
 	musicButton.setPosition(sf::Vector2f(575.f, 600.f));
 	uiManager.addButton(musicButton);
 }
@@ -347,7 +398,7 @@ void Game::enterFreeFormMode() {
 	// Remove main menu buttons.
 	uiManager.clearButtons();
 	currentMode = Mode::FreeForm;
-	allowPuckCollision = false;  // Default for free form; user can toggle.
+	allowSegmentCollision = false;  // Default for free form; user can toggle.
 	// Now initialize simulation UI (reset and toggle buttons).
 	initUIButtons();
 	gameReset();
@@ -357,7 +408,7 @@ void Game::enterScoringMode() {
 	mainMenuMusic.stop();
 	uiManager.clearButtons();
 	currentMode = Mode::Scoring;
-	allowPuckCollision = true;  // Always collide in scoring mode.
+	allowSegmentCollision = true;  // Always collide in scoring mode.
 	initUIButtons();
 	gameReset();
 }
@@ -374,12 +425,14 @@ void Game::enterMainMenu() {
 	initMainMenuUI();
 }
 
-void Game::gameReset() {
+void Game::gameReset(std::string resetType) {
 	puck.reset(startingPos);
-	grid.resetGrid();
 	simulationStarted = false;
 	startButton.setText("Start");
 	startButton.shape.setFillColor(Colors::LightGreen);
+	if (resetType == "full") {
+		grid.resetGrid();
+	}
 }
 
 void Game::startSimulation() {

@@ -31,11 +31,12 @@ public:
 
     static const sf::Font& getDefaultFont();
 
-    bool toggled;
+    bool toggled = false;
+    bool active = false;
+    bool hover = false;
     sf::RectangleShape shape;
 
 private:
-    bool active;
 
     sf::Text text;
 

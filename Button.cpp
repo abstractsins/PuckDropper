@@ -108,12 +108,13 @@ void Button::update(const sf::RenderWindow& window) {
     sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
     if (contains(mousePos)) {
-        std::cout << "'" << text.getString().toAnsiString() << "' Contains mousePOS\n\n";
+        //std::cout << "'" << text.getString().toAnsiString() << "' Contains mousePOS\n\n";
 
-        setFillColor(sf::Color::Black);
+        hover = true;
 
         if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
             std::cout << "'" << text.getString().toAnsiString() << "' Clicked\n\n";
+
 
 
         }
@@ -122,6 +123,8 @@ void Button::update(const sf::RenderWindow& window) {
         }
     }
     else {
+
+        hover = false;
 
     }
 }
