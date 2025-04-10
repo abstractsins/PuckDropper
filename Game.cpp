@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "UIManager.h"
 #include "Colors.h"
+#include "Mode.h"
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <iostream>
@@ -9,8 +10,8 @@
 Game::Game()
 	: window(sf::VideoMode({ 800, 800 }), "Puck Dropper"),
 	view({ 400.f, 300.f }, sf::Vector2f{ 800.f, 800.f }),
-	grid(14, 20, 30.f, 1.5, sf::Vector2f{ 800.f, 800.f }, 0.f),
-	puck(6.f, startingPos),
+	grid(14, 20, 30.f, 1.5, sf::Vector2f{ 800.f, 800.f }, 0.f, Mode::Scoring),
+	puck(7.f, startingPos),
 	mainMenuMusic("symphbass.wav")
 {
 	sf::Image icon;
@@ -30,11 +31,35 @@ void Game::run() {
 		processEvents();
 
 		// Only update the puck if the simulation has started.
-		if (currentMode != Mode::MainMenu && currentMode != Mode::About && simulationStarted) {
+		if (currentMode != Mode::Main && currentMode != Mode::About && simulationStarted) {
 			puck.update(dt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak);
 			if (isPuckOutOfBounds() == true) {
 				puck.reset(startingPos);
 			}
+		}
+
+		if (currentMode == Mode::Scoring) {
+			if (!grid.puckLanded) {
+				sf::Vector2f puckPos = puck.getPosition();
+				sf::Vector2f velocity = puck.getVelocity(); // assume you have this
+				std::cout << std::to_string(velocity.x) << " , " << std::to_string(velocity.y) << '\n';
+
+				// Check if it's in the bucket region (y-position wise)
+				if (puckPos.y > grid.getDotPosition(0, grid.getRows() - 3).y) {
+					// Check if it's basically stopped
+					if (std::abs(velocity.x) < 3 && std::abs(velocity.y) < 2) {
+						grid.puckLanded = true;
+
+						int col = grid.getColumnFromX(puckPos.x); // you may need to write this helper
+						std::cout << "Puck landed in column: " << col << "\n";
+
+						int score = grid.scoreValues[col];
+						totalScore += score;
+						std::cout << std::to_string(totalScore) << "\n\n";
+					}
+				}
+			}
+
 		}
 
 		render();
@@ -63,11 +88,11 @@ void Game::processEvents() {
 				if (auto keyEvent = event->getIf<sf::Event::KeyPressed>()) {
 					// If Enter is pressed, simulate a start button click.
 					if (keyEvent->code == sf::Keyboard::Key::Enter) {
-						startButton.onClick();
+						running ? gameReset("soft") : startButton.onClick();
 					}
 				}
 			}
-		}	
+		}
 
 		if (event->is<sf::Event::MouseButtonPressed>()) {
 			sf::Vector2i pixel = sf::Mouse::getPosition(window);
@@ -117,9 +142,9 @@ void Game::handleResize() {
 
 void Game::update(float dt) {
 	// If in simulation mode, update simulation UI elements (e.g. toggle button for free form).
-	if (currentMode != Mode::About && currentMode != Mode::MainMenu) {
+	if (currentMode != Mode::About && currentMode != Mode::Main) {
 		// For Free Form mode, update the toggle button appearance.
-		if (currentMode == Mode::FreeForm) {
+		if (currentMode == Mode::Free) {
 			toggleSegmentCollisionButton.update(window);
 		}
 	}
@@ -143,7 +168,7 @@ bool Game::isPuckOutOfBounds() {
 void Game::render() {
 	window.clear(sf::Color::Black);
 
-	if (currentMode == Mode::MainMenu || currentMode == Mode::About) {
+	if (currentMode == Mode::Main || currentMode == Mode::About) {
 		// Draw the background image first if available.
 		if (menuBackgroundSprite) {
 			window.draw(*menuBackgroundSprite);
@@ -168,9 +193,10 @@ void Game::render() {
 		// Simulation mode drawing.
 		grid.draw(window);
 		puck.draw(window);
-		resetButton.draw(window);
+		resetGridButton.draw(window);
+		resetPuckButton.draw(window);
 		startButton.draw(window);
-		if (currentMode == Mode::FreeForm) {
+		if (currentMode == Mode::Free) {
 			toggleSegmentCollisionButton.draw(window);
 			toggleDotCollisionButton.draw(window);
 			togglePuckBreakButton.draw(window);
@@ -195,7 +221,7 @@ void Game::render() {
 		returnToMenuButton.draw(window);
 	}
 
-	if (currentMode == Mode::MainMenu) {
+	if (currentMode == Mode::Main) {
 		// Then draw the main menu buttons.
 		window.draw(menuContainer);
 		freeModeButton.draw(window);
@@ -230,13 +256,15 @@ void Game::initFont() {
 	if (!titleFont.openFromFile("RubikGlitch.ttf")) {
 		std::cerr << "Failed to open RubikGlitch.ttf\n";
 	}
+	grid.setFont(uiFont);
 }
 
 void Game::initUIButtons() {
 	// Initialize simulation UI buttons.
-	initResetButton();
+	initResetGridButton();
+	initResetPuckButton();
 	// (Existing toggle button for FreeForm mode gets added only if applicable.)
-	if (currentMode == Mode::FreeForm) {
+	if (currentMode == Mode::Free) {
 
 		toggleSegmentCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Line Collision: OFF", uiFont, [this]() {
 			toggleSegmentCollisionButton.toggled = !toggleSegmentCollisionButton.toggled;
@@ -278,6 +306,7 @@ void Game::initUIButtons() {
 
 	startButton = Button(sf::Vector2f(100.f, 40.f), "Start", uiFont, [this]() {
 		startSimulation();
+		running = true;
 		startButton.setText("Running...");
 		startButton.shape.setFillColor(Colors::ForestGreen);
 	});
@@ -286,15 +315,26 @@ void Game::initUIButtons() {
 	uiManager.addButton(startButton);
 }
 
-void Game::initResetButton() {
+void Game::initResetGridButton() {
 	// Create a new reset button using our Button class.
 	// The callback here resets the puck when the button is clicked.
-	resetButton = Button(sf::Vector2f(120.f, 40.f), "Reset Grid", uiFont, [this]() {
-		gameReset();
+	resetGridButton = Button(sf::Vector2f(120.f, 40.f), "Reset Grid", uiFont, [this]() {
+		gameReset("full");
 	});
-	resetButton.setPosition(sf::Vector2f(20.f, 20.f));
-	resetButton.setFillColor(Colors::LightRed);
-	uiManager.addButton(resetButton);
+	resetGridButton.setPosition(sf::Vector2f(20.f, 20.f));
+	resetGridButton.setFillColor(Colors::LightRed);
+	uiManager.addButton(resetGridButton);
+}
+
+void Game::initResetPuckButton() {
+	// Create a new reset button using our Button class.
+	// The callback here resets the puck when the button is clicked.
+	resetPuckButton = Button(sf::Vector2f(120.f, 40.f), "Reset Puck", uiFont, [this]() {
+		gameReset("soft");
+	});
+	resetPuckButton.setPosition(sf::Vector2f(150.f, 20.f));
+	resetPuckButton.setFillColor(Colors::LightRed);
+	uiManager.addButton(resetPuckButton);
 }
 
 void Game::initReturnToMenuButton() {
@@ -397,20 +437,24 @@ void Game::enterFreeFormMode() {
 	mainMenuMusic.stop();
 	// Remove main menu buttons.
 	uiManager.clearButtons();
-	currentMode = Mode::FreeForm;
+	currentMode = Mode::Free;
+	grid.setMode(Mode::Free);
 	allowSegmentCollision = false;  // Default for free form; user can toggle.
 	// Now initialize simulation UI (reset and toggle buttons).
 	initUIButtons();
-	gameReset();
+	gameReset("full");
 }
 
 void Game::enterScoringMode() {
 	mainMenuMusic.stop();
 	uiManager.clearButtons();
 	currentMode = Mode::Scoring;
+	grid.setMode(Mode::Scoring);
 	allowSegmentCollision = true;  // Always collide in scoring mode.
+	allowDotCollision = true; // Always collide in scoring mode.
+	allowPuckBreak = true;
 	initUIButtons();
-	gameReset();
+	gameReset("full");
 }
 
 void Game::enterAboutMode() {
@@ -421,7 +465,7 @@ void Game::enterAboutMode() {
 
 void Game::enterMainMenu() {
 	uiManager.clearButtons();
-	currentMode = Mode::MainMenu;
+	currentMode = Mode::Main;
 	initMainMenuUI();
 }
 
@@ -430,6 +474,9 @@ void Game::gameReset(std::string resetType) {
 	simulationStarted = false;
 	startButton.setText("Start");
 	startButton.shape.setFillColor(Colors::LightGreen);
+	running = false;
+	grid.puckLanded = false;
+	totalScore = 0;
 	if (resetType == "full") {
 		grid.resetGrid();
 	}

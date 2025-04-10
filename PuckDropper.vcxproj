@@ -140,6 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Buckets.cpp" />
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="EventHandling.cpp" />
     <ClCompile Include="Game.cpp" />
@@ -150,9 +151,12 @@
     <ClCompile Include="UIManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Bucket.h" />
+    <ClInclude Include="Buckets.h" />
     <ClInclude Include="Button.h" />
     <ClInclude Include="Colors.h" />
     <ClInclude Include="Game.h" />
+    <ClInclude Include="Mode.h" />
     <ClInclude Include="Puck.h" />
     <ClInclude Include="UIManager.h" />
   </ItemGroup>

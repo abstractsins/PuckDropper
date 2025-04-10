@@ -6,9 +6,12 @@
 #include "Puck.h"
 #include "UIManager.h"
 #include "Button.h"
+#include "Mode.h"
 
 class Game {
 public:
+    Mode getCurrentMode() { return currentMode; };
+
     Game();
     void run();
 
@@ -31,7 +34,8 @@ private:
     sf::Music mainMenuMusic;
 
     // UI buttons for simulation mode.
-    Button resetButton;
+    Button resetGridButton;
+    Button resetPuckButton;
     Button returnToMenuButton;
     Button startButton;
     
@@ -53,8 +57,8 @@ private:
     sf::Clock clock;
 
     // Mode selection:
-    enum class Mode { MainMenu, FreeForm, Scoring, About };
-    Mode currentMode = Mode::MainMenu;
+    //enum class Mode { MainMenu, FreeForm, Scoring, About };
+    Mode currentMode = Mode::Main;
     bool allowSegmentCollision = false; // In free mode, user can toggle; in scoring mode, always true.
     bool allowDotCollision = false; // In free mode, user can toggle; in scoring mode, always true.
     bool allowPuckBreak = false; // In free mode, user can toggle; in scoring mode, always true.
@@ -70,7 +74,8 @@ private:
     void initUI();
     void initFont();
     void initUIButtons();
-    void initResetButton();
+    void initResetGridButton();
+    void initResetPuckButton();
     void initReturnToMenuButton();
 
     // Main Menu UI initialization:
@@ -86,8 +91,12 @@ private:
 
     void handleMouseClick(const sf::Vector2f& pos);
     void gameReset(std::string resetType = "full");
+
+    bool running = false;
     
     Grid grid;
     Puck puck;
     UIManager uiManager;
+    
+    int totalScore = 0;
 };

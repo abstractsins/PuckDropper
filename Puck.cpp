@@ -1,9 +1,11 @@
 #include "Puck.h"
+#include "Game.h"
 #include "Grid.h"
 #include <iostream>
 #include <cmath>
 
-const float FALL_DISTANCE_THRESHOLD = 95.f;
+//const float FALL_DISTANCE_THRESHOLD = 120.f;
+const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
 
 Puck::Puck(float radius, sf::Vector2f startPos) {
     shape.setRadius(radius);
@@ -38,7 +40,9 @@ void Puck::update(
             sf::Vector2f b = grid.getDotPosition(conn.to.x, conn.to.y);
             sf::Vector2f normal;
             if (checkCollisionWithSegment(prevPos, nextPos, a, b, normal)) {
-                numCollisions += 1;
+                if (!grid.puckLanded) {
+                    numCollisions += 1;
+                }
 
                 shape.setPosition(prevPos); // Rewind
                 velocity = velocity - 2.f * dot(velocity, normal) * normal; // Reflect
@@ -72,7 +76,9 @@ void Puck::update(
                     velocity *= 0.85f; // Dampen the velocity a bit
                     shape.move(collisionNormal * 0.5f); // Nudge out of the dot area
                     collided = true;
-                    numCollisions += 1;
+                    if (!grid.puckLanded) {
+                        numCollisions += 1;
+                    }
                     if (enablePuckBreak) breakHandler(lastCollisionY);
                     lastCollisionY = shape.getPosition().y;
                 }
@@ -85,11 +91,7 @@ void Puck::update(
 
 
 void Puck::breakHandler(float lastCollisionY) {
-    std::cout << "Break Handler\n";
     float fallDistance = shape.getPosition().y - lastCollisionY;
-    std::cout << "lastCollision: " << std::to_string(lastCollisionY) << "\n";
-    std::cout << "fallDistance: " << std::to_string(fallDistance) << "\n";
-    std::cout << "FALL_DISTANCE_THRESHOLD: " << std::to_string(FALL_DISTANCE_THRESHOLD) << "\n\n";
     if (fallDistance > FALL_DISTANCE_THRESHOLD) {
         breakPuck();
     }
@@ -101,7 +103,6 @@ void Puck::reset(const sf::Vector2f& position) {
     isBroken = false;
     shape.setFillColor(sf::Color::White);  // Reset to normal color
     lastCollisionY = position.y;
-    std::cout << "reset collision: " << std::to_string(lastCollisionY) << "\n\n";
     numCollisions = 0;
 }
 
@@ -137,4 +138,8 @@ bool Puck::checkCollisionWithSegment(
 
 static float dot(const sf::Vector2f& a, const sf::Vector2f& b) {
     return a.x * b.x + a.y * b.y;
+}
+
+sf::Vector2f Puck::getVelocity() const {
+    return velocity;
 }

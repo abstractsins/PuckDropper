@@ -17,6 +17,7 @@ public:
     void reset(const sf::Vector2f& position);
     sf::Vector2f getPosition() const { return shape.getPosition(); };
     int getCollisions() const { return numCollisions; };
+    sf::Vector2f getVelocity() const;
 
 private:
     sf::CircleShape shape;

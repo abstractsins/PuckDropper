@@ -1,7 +1,12 @@
 #include "Grid.h"
 #include "Colors.h"
+#include "Mode.h"
+#include <iostream>
 
-Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f screenSize, float padding)
+#include <string>
+
+
+Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f screenSize, float padding, Mode mode)
 	: cols(cols), rows(rows), spacing(spacing), dotRadius(dotRadius)
 {
 	float extraOffset = 100.f;
@@ -21,17 +26,6 @@ Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f scre
 	sf::Vector2f boundsSize = size + sf::Vector2f(30.f, 30.f); // buffer padding
 
 	setBounds(boundsPos, boundsSize);
-
-
-	// LEFT and RIGHT WALLS
-	for (int y = 0; y < rows - 1; ++y) {
-		// left side column 0
-		connections.push_back({ {0, y}, {0, y + 1}, false, Colors::DarkPurple });
-
-		// right side last column 
-		int lastCol = cols - 1;
-		connections.push_back({ {lastCol, y}, {lastCol, y + 1}, false, Colors::DarkPurple });
-	}
 }
 
 void Grid::setBounds(const sf::Vector2f& position, const sf::Vector2f& size) {
@@ -84,6 +78,12 @@ void Grid::draw(sf::RenderWindow& window) {
 		window.draw(highlight);
 	}
 
+	if (currentMode == Mode::Scoring) {
+		for (const auto& text : scoreTexts) {
+			window.draw(text);
+		}
+	}
+
 }
 
 void Grid::addConnection(int col1, int row1, int col2, int row2) {
@@ -113,13 +113,19 @@ bool Grid::handleClick(sf::Vector2f mousePos) {
 						if (const Connection* conn = getConnection(selectedDot.value(), clicked)) {
 							if (conn->isEditable) {
 								removeConnection(selectedDot.value(), clicked);
+								numConnections -= 1;
 							}
 						}
 						else {
-							addConnection(
-								selectedDot.value().x, selectedDot.value().y,
-								clicked.x, clicked.y
-							);
+							bool inScoringSlotZone = selectedDot->y >= rows - 3 || clicked.y >= rows - 3;
+							if (!inScoringSlotZone || currentMode != Mode::Scoring) {
+								addConnection(
+									selectedDot.value().x, selectedDot.value().y,
+									clicked.x, clicked.y
+								);
+								numConnections += 1;
+								std::cout << "connections: " << std::to_string(numConnections) << "\n\n";
+							}
 						}
 					}
 
@@ -175,6 +181,67 @@ void Grid::resetGrid() {
 		connections.push_back({ {lastCol, y}, {lastCol, y + 1}, false, Colors::DarkPurple });
 	}
 
+	// BOTTOM
+	if (currentMode == Mode::Scoring) {
+		scoreTexts.clear();
+
+		scoreValues = { 0, 10, 50, 100, 200, 250, 500, 250, 200, 100, 50, 10, 0 };
+
+		for (int x = 0; x < cols - 1; ++x) {
+			int lastRow = rows - 1;
+			connections.push_back({ {x, lastRow}, {x + 1, lastRow}, false, Colors::DarkPurple });
+		}
+
+		for (int x = 0; x < cols; ++x) {
+			int lastRow = rows - 1;
+			if (x > 0) {
+
+				if (x < cols - 1) {
+					connections.push_back({ {x, lastRow - 1}, {x, lastRow}, false, Colors::LightBlue });
+					connections.push_back({ {x, lastRow - 2}, {x, lastRow - 1}, false, Colors::LightBlue });
+				}
+
+				// Convert score into vertical string
+				std::string verticalText;
+				for (char c : std::to_string(scoreValues[x - 1])) {
+					verticalText += c;
+					verticalText += '\n';
+				}
+
+				// Create sf::Text object
+				sf::Text scoreText(font, verticalText, 12);
+				scoreText.setFillColor(sf::Color::White);
+
+				// Position below the bucket
+				sf::Vector2f dotPos = getDotPosition(x, lastRow);
+				scoreText.setPosition(dotPos + sf::Vector2f(-20.f, 8.f)); // Adjust for visual alignment
+
+				scoreTexts.push_back(scoreText);
+			}
+		}
+	}
+
 	// Optionally, clear any selection.
 	selectedDot.reset();
+}
+
+void Grid::setMode(Mode newMode) {
+	currentMode = newMode;
+}
+
+void Grid::setFont(const sf::Font& newFont) {
+	font = newFont;
+}
+
+int Grid::getColumnFromX(float x) const {
+	float minDistance = FLT_MAX;
+	int closestCol = 0;
+	for (int col = 0; col < cols; ++col) {
+		float dx = std::abs(x - getDotPosition(col, 0).x);
+		if (dx < minDistance) {
+			minDistance = dx;
+			closestCol = col;
+		}
+	}
+	return closestCol;
 }
