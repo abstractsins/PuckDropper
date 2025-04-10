@@ -4,8 +4,8 @@
 #include <iostream>
 #include <cmath>
 
-//const float FALL_DISTANCE_THRESHOLD = 120.f;
-const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
+const float FALL_DISTANCE_THRESHOLD = 120.f;
+//const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
 
 Puck::Puck(float radius, sf::Vector2f startPos) {
     shape.setRadius(radius);
@@ -24,7 +24,8 @@ void Puck::update(
     const Grid& grid, 
     bool enableSegmentCollision, 
     bool enableDotCollision,
-    bool enablePuckBreak
+    bool enablePuckBreak,
+    bool puckLanded
 ) {
     if (isBroken) return;
 
@@ -40,10 +41,9 @@ void Puck::update(
             sf::Vector2f b = grid.getDotPosition(conn.to.x, conn.to.y);
             sf::Vector2f normal;
             if (checkCollisionWithSegment(prevPos, nextPos, a, b, normal)) {
-                if (!grid.puckLanded) {
+                if (!puckLanded) {
                     numCollisions += 1;
                 }
-
                 shape.setPosition(prevPos); // Rewind
                 velocity = velocity - 2.f * dot(velocity, normal) * normal; // Reflect
                 velocity *= 0.85f; // Dampen
@@ -66,17 +66,17 @@ void Puck::update(
                 float distanceSq = diff.x * diff.x + diff.y * diff.y;
                 if (distanceSq < combinedRadius * combinedRadius) {
 
-                    // Collision detected with grid dot. Calculate normal.
-                    float distance = std::sqrt(distanceSq);
-                    sf::Vector2f collisionNormal = (distance > 0.f) ? diff / distance
-                        : sf::Vector2f(0.f, -1.f);
-                    // Resolve collision by rewinding and reflecting velocity.
-                    shape.setPosition(prevPos);
-                    velocity = velocity - 2.f * dot(velocity, collisionNormal) * collisionNormal;
-                    velocity *= 0.85f; // Dampen the velocity a bit
-                    shape.move(collisionNormal * 0.5f); // Nudge out of the dot area
-                    collided = true;
-                    if (!grid.puckLanded) {
+                        // Collision detected with grid dot. Calculate normal.
+                        float distance = std::sqrt(distanceSq);
+                        sf::Vector2f collisionNormal = (distance > 0.f) ? diff / distance
+                            : sf::Vector2f(0.f, -1.f);
+                        // Resolve collision by rewinding and reflecting velocity.
+                        shape.setPosition(prevPos);
+                        velocity = velocity - 2.f * dot(velocity, collisionNormal) * collisionNormal;
+                        velocity *= 0.85f; // Dampen the velocity a bit
+                        shape.move(collisionNormal * 0.5f); // Nudge out of the dot area
+                    if (!puckLanded) {
+                        collided = true;
                         numCollisions += 1;
                     }
                     if (enablePuckBreak) breakHandler(lastCollisionY);
@@ -142,4 +142,8 @@ static float dot(const sf::Vector2f& a, const sf::Vector2f& b) {
 
 sf::Vector2f Puck::getVelocity() const {
     return velocity;
+}
+
+void Puck::setFillColor(sf::Color newColor) {
+    shape.setFillColor(newColor);
 }

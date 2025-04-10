@@ -51,6 +51,7 @@ public:
     int getColumnFromX(float x) const;
     std::vector<int> scoreValues;
     int getNumConnections() { return numConnections; };
+    void setNumConnections(int newNum) { numConnections = newNum; };
     bool puckLanded;
 
 private:

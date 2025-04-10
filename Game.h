@@ -56,6 +56,10 @@ private:
 
     sf::Clock clock;
 
+    sf::Clock runClock;
+    float elapsedTime = 0.f;
+    bool puckLanded = grid.puckLanded;
+
     // Mode selection:
     //enum class Mode { MainMenu, FreeForm, Scoring, About };
     Mode currentMode = Mode::Main;

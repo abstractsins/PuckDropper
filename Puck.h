@@ -11,13 +11,15 @@ public:
         const Grid& grid, 
         bool enableSegmentCollision, 
         bool enableDotCollision,
-        bool enablePuckBreak
+        bool enablePuckBreak,
+        bool puckLanded
     );
     bool broken() const { return isBroken; }
     void reset(const sf::Vector2f& position);
     sf::Vector2f getPosition() const { return shape.getPosition(); };
     int getCollisions() const { return numCollisions; };
     sf::Vector2f getVelocity() const;
+    void setFillColor(sf::Color newColor);
 
 private:
     sf::CircleShape shape;

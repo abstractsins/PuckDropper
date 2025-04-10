@@ -32,14 +32,15 @@ void Game::run() {
 
 		// Only update the puck if the simulation has started.
 		if (currentMode != Mode::Main && currentMode != Mode::About && simulationStarted) {
-			puck.update(dt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak);
+			puck.update(dt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak, puckLanded);
 			if (isPuckOutOfBounds() == true) {
 				puck.reset(startingPos);
+				runClock.restart();
 			}
 		}
 
 		if (currentMode == Mode::Scoring) {
-			if (!grid.puckLanded) {
+			if (!puckLanded) {
 				sf::Vector2f puckPos = puck.getPosition();
 				sf::Vector2f velocity = puck.getVelocity(); // assume you have this
 				std::cout << std::to_string(velocity.x) << " , " << std::to_string(velocity.y) << '\n';
@@ -48,8 +49,9 @@ void Game::run() {
 				if (puckPos.y > grid.getDotPosition(0, grid.getRows() - 3).y) {
 					// Check if it's basically stopped
 					if (std::abs(velocity.x) < 3 && std::abs(velocity.y) < 2) {
-						grid.puckLanded = true;
-
+						puckLanded = true;
+						puck.setFillColor(sf::Color::Green);
+						elapsedTime = runClock.getElapsedTime().asSeconds();
 						int col = grid.getColumnFromX(puckPos.x); // you may need to write this helper
 						std::cout << "Puck landed in column: " << col << "\n";
 
@@ -61,6 +63,8 @@ void Game::run() {
 			}
 
 		}
+
+		if (puck.broken()) { runClock.stop(); }
 
 		render();
 	}
@@ -107,6 +111,10 @@ void Game::processEvents() {
 
 void Game::handleMouseClick(const sf::Vector2f& pos) {
 	std::cout << "\nMouse world pos: (" << pos.x << ", " << pos.y << ")\n";
+	if (currentMode == Mode::Scoring && running) {
+		// Don’t allow editing during scoring simulation
+		return;
+	}
 	if (uiManager.handleClick(pos)) {
 		return;
 	}
@@ -204,19 +212,33 @@ void Game::render() {
 		if (puck.broken()) {
 			// Reset Prompt By
 			sf::Text userResetPrompt(uiFont, "Press Any Key to Reset Puck", 24);
-			userResetPrompt.setPosition({ 300.f, 35.f });
+			userResetPrompt.setPosition({ 300.f, 50.f });
 			userResetPrompt.setFillColor(Colors::Whitesmoke);
 			userResetPrompt.setOutlineColor(sf::Color::Green);
 			userResetPrompt.setOutlineThickness(0.25);
 			window.draw(userResetPrompt);
 			//userResetPrompt.draw(window);
 		}
+
 		// collision counter
 		int numCollisions = puck.getCollisions();
 		sf::Text collisionScore(uiFont, "Collisions: " + std::to_string(numCollisions), 18);
-		collisionScore.setPosition({ 500.f, 10.f });
+		collisionScore.setPosition({ 325.f, 10.f });
 		collisionScore.setFillColor(Colors::Whitesmoke);
 		window.draw(collisionScore);
+
+		// run clock
+		float displayTime = puckLanded ? elapsedTime : runClock.getElapsedTime().asSeconds();
+		sf::Text elapsedTimeText(uiFont, "Time: " + std::to_string(displayTime), 18);
+		elapsedTimeText.setPosition({ 500.f, 10.f });
+		elapsedTimeText.setFillColor(Colors::Whitesmoke);
+		window.draw(elapsedTimeText);
+
+		// num connections
+		sf::Text connectionsText(uiFont, "Connections: " + std::to_string(grid.getNumConnections()), 18);
+		connectionsText.setPosition({ 325.f, 30.f });
+		connectionsText.setFillColor(Colors::Whitesmoke);
+		window.draw(connectionsText);
 
 		returnToMenuButton.draw(window);
 	}
@@ -304,8 +326,9 @@ void Game::initUIButtons() {
 	}
 	initReturnToMenuButton();
 
-	startButton = Button(sf::Vector2f(100.f, 40.f), "Start", uiFont, [this]() {
+	startButton = Button(sf::Vector2f(120.f, 40.f), "Start", uiFont, [this]() {
 		startSimulation();
+		runClock.restart();
 		running = true;
 		startButton.setText("Running...");
 		startButton.shape.setFillColor(Colors::ForestGreen);
@@ -440,7 +463,8 @@ void Game::enterFreeFormMode() {
 	currentMode = Mode::Free;
 	grid.setMode(Mode::Free);
 	allowSegmentCollision = false;  // Default for free form; user can toggle.
-	// Now initialize simulation UI (reset and toggle buttons).
+	allowDotCollision = false;  // Default for free form; user can toggle.
+	allowPuckBreak = false;  // Default for free form; user can toggle.
 	initUIButtons();
 	gameReset("full");
 }
@@ -467,16 +491,18 @@ void Game::enterMainMenu() {
 	uiManager.clearButtons();
 	currentMode = Mode::Main;
 	initMainMenuUI();
+	grid.setNumConnections(0);
 }
 
 void Game::gameReset(std::string resetType) {
 	puck.reset(startingPos);
 	simulationStarted = false;
+	running = false;
+	puckLanded = false;
 	startButton.setText("Start");
 	startButton.shape.setFillColor(Colors::LightGreen);
-	running = false;
-	grid.puckLanded = false;
 	totalScore = 0;
+	runClock.reset();
 	if (resetType == "full") {
 		grid.resetGrid();
 	}

@@ -170,6 +170,7 @@ const std::vector<Grid::Connection>& Grid::getConnections() const {
 void Grid::resetGrid() {
 	// Clear any user-added or modified connections.
 	connections.clear();
+	setNumConnections(0);
 
 	// Re-create the original left and right wall connections as defined in the constructor.
 	for (int y = 0; y < rows - 1; ++y) {
