@@ -60,6 +60,9 @@ private:
     float elapsedTime = 0.f;
     bool puckLanded = grid.puckLanded;
 
+    float windowWidth;
+    float windowHeight;
+
     // Mode selection:
     //enum class Mode { MainMenu, FreeForm, Scoring, About };
     Mode currentMode = Mode::Main;
@@ -73,7 +76,14 @@ private:
     void update(float dt);
     bool isPuckOutOfBounds();
     void render();
-    
+
+    void titleCreatedBy();
+    void promptToRetry();
+    void freeModeOptions();
+    void allModesElements();
+    void setupMainMenu();
+    void displayTopScores();
+
     // UI initialization functions:
     void initUI();
     void initFont();
@@ -81,9 +91,14 @@ private:
     void initResetGridButton();
     void initResetPuckButton();
     void initReturnToMenuButton();
+    void freeModeButtons();
+    void onScreenMetrics();
 
     // Main Menu UI initialization:
     void initMainMenuUI();
+    void setBackground();
+    void mainMenuButtons();
+    void menuUiContainer();
 
     // Mode switching functions:
     void enterFreeFormMode();
@@ -109,5 +124,7 @@ private:
     int timeBonusMultiplier;
 
     std::string scoreOutputText(int score, int timeBonus, int collisions, int segments, int totalScore);
+
+    void displayScore();
 
 };

@@ -183,96 +183,31 @@ void Game::render() {
 		if (menuBackgroundSprite) {
 			window.draw(*menuBackgroundSprite);
 		}
-		// Title
-		sf::Text titleText(titleFont, "Puck Dropper", 86);
-		titleText.setPosition({ 100.f, 50.f });
-		titleText.setFillColor(sf::Color::Yellow);
-		titleText.setOutlineColor(sf::Color::Black); 
-		titleText.setOutlineThickness(0.5); 
-		window.draw(titleText);
 
-		// Created By
-		sf::Text createdByText(uiFont, "Created by Daniel Berlin, 2025", 16);
-		createdByText.setPosition({ 550.f, 700.f });
-		createdByText.setFillColor(Colors::Whitesmoke);
-		createdByText.setOutlineColor(sf::Color::Black);
-		createdByText.setOutlineThickness(0.5);
-		window.draw(createdByText);
+		titleCreatedBy();
+
 	}
 	else {
-		// Simulation mode drawing.
-		grid.draw(window);
-		puck.draw(window);
-		resetGridButton.draw(window);
-		resetPuckButton.draw(window);
-		startButton.draw(window);
+		allModesElements();
+
 		if (currentMode == Mode::Free) {
-			toggleSegmentCollisionButton.draw(window);
-			toggleDotCollisionButton.draw(window);
-			togglePuckBreakButton.draw(window);
+			freeModeOptions();
 		}
+
+		if (currentMode == Mode::Scoring) {
+			displayTopScores();
+		}
+
 		if (puck.broken()) {
-			// Reset Prompt By
-			sf::Text userResetPrompt(uiFont, "Press Any Key to Reset Puck", 24);
-			userResetPrompt.setPosition({ 300.f, 50.f });
-			userResetPrompt.setFillColor(Colors::Whitesmoke);
-			userResetPrompt.setOutlineColor(sf::Color::Green);
-			userResetPrompt.setOutlineThickness(0.25);
-			window.draw(userResetPrompt);
-			//userResetPrompt.draw(window);
-		}
-
-		// collision counter
-		int numCollisions = puck.getCollisions();
-		sf::Text collisionScore(uiFont, "Collisions: " + std::to_string(numCollisions), 18);
-		collisionScore.setPosition({ 325.f, 10.f });
-		collisionScore.setFillColor(Colors::Whitesmoke);
-		window.draw(collisionScore);
-
-		// run clock
-		float displayTime = puckLanded ? elapsedTime : runClock.getElapsedTime().asSeconds();
-		sf::Text elapsedTimeText(uiFont, "Time: " + std::to_string(displayTime), 18);
-		elapsedTimeText.setPosition({ 500.f, 10.f });
-		elapsedTimeText.setFillColor(Colors::Whitesmoke);
-		window.draw(elapsedTimeText);
-
-		// num connections
-		sf::Text connectionsText(uiFont, "Connections: " + std::to_string(grid.getNumConnections()), 18);
-		connectionsText.setPosition({ 325.f, 30.f });
-		connectionsText.setFillColor(Colors::Whitesmoke);
-		window.draw(connectionsText);
-
-		returnToMenuButton.draw(window);
-
-		if (puckLanded) {
-			sf::RectangleShape scoreReadoutArea({ 225.f, 175.f });
-
-			scoreReadoutArea.setPosition({ 20.f, 580.f });
-			scoreReadoutArea.setFillColor(sf::Color::Transparent);
-			scoreReadoutArea.setOutlineColor(sf::Color::Cyan);
-			scoreReadoutArea.setOutlineThickness(1.f);
-
-			std::string scoreReadout = scoreOutputText(score, timeBonusMultiplier, puck.getCollisions(), grid.getNumConnections(), totalScore);
-			sf::Text scoreReadoutText(uiFont, scoreReadout, 16);
-			std::cout << scoreReadoutText.getString().toAnsiString() << "\n";
-			float padding = 20.f;
-			scoreReadoutText.setPosition({ scoreReadoutArea.getPosition().x + padding, scoreReadoutArea.getPosition().y + padding });
-
-			window.draw(scoreReadoutArea);
-			window.draw(scoreReadoutText);
+			promptToRetry();
+		} 
+		else if (puckLanded) {
+			displayScore();
 		}
 	}
 
 	if (currentMode == Mode::Main) {
-		// Then draw the main menu buttons.
-		window.draw(menuContainer);
-		freeModeButton.draw(window);
-		scoringModeButton.draw(window);
-		rulesModeButton.draw(window);
-		musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
-		musicButton.draw(window);
-		musicButton.setFillColor(musicButton.hover ? sf::Color::Cyan : sf::Color::Black);
-
+		setupMainMenu();
 	} 
 	else if (currentMode == Mode::About) {
 		returnToMenuButton.draw(window);
@@ -282,6 +217,102 @@ void Game::render() {
 	window.display();
 }
 
+void Game::displayTopScores() {
+	sf::RectangleShape topScores({ 250.f, 380.f });
+	topScores.setFillColor(sf::Color::Transparent);
+	topScores.setOutlineColor(sf::Color::Yellow);
+	topScores.setOutlineThickness(1.f);
+	topScores.setPosition({ 20.f, 120.f });
+
+	sf::Text topScoresTitle(titleFont, "Top Scores", 24);
+	topScoresTitle.setFillColor(sf::Color::Yellow);
+
+	sf::FloatRect textBounds = topScoresTitle.getLocalBounds();
+	sf::Vector2f size = textBounds.size;
+	topScoresTitle.setOrigin(size / 2.f);
+	topScoresTitle.setPosition({ topScores.getPosition().x + topScores.getSize().x / 2.f, topScores.getPosition().y + 10.f });
+
+	window.draw(topScores);
+	window.draw(topScoresTitle);
+}
+
+void Game::setupMainMenu() {
+	// Then draw the main menu buttons.
+	window.draw(menuContainer);
+	freeModeButton.draw(window);
+	scoringModeButton.draw(window);
+	rulesModeButton.draw(window);
+	musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
+	musicButton.draw(window);
+	musicButton.setFillColor(musicButton.hover ? sf::Color::Cyan : sf::Color::Black);
+}
+
+void Game::allModesElements() {
+	// Simulation mode drawing.
+	grid.draw(window);
+	puck.draw(window);
+	resetGridButton.draw(window);
+	resetPuckButton.draw(window);
+	startButton.draw(window);
+	onScreenMetrics();
+	returnToMenuButton.draw(window);
+}
+
+void Game::freeModeOptions() {
+	toggleSegmentCollisionButton.draw(window);
+	toggleDotCollisionButton.draw(window);
+	togglePuckBreakButton.draw(window);
+}
+
+void Game::promptToRetry() {
+	// Reset Prompt By
+	sf::Text userResetPrompt(uiFont, "Press Any Key to Reset Puck", 24);
+	userResetPrompt.setPosition({ 300.f, 50.f });
+	userResetPrompt.setFillColor(Colors::Whitesmoke);
+	userResetPrompt.setOutlineColor(sf::Color::Green);
+	userResetPrompt.setOutlineThickness(0.25);
+	window.draw(userResetPrompt);
+}
+
+void Game::onScreenMetrics() {
+	// collision counter
+	int numCollisions = puck.getCollisions();
+	sf::Text collisionScore(uiFont, "Collisions: " + std::to_string(numCollisions), 18);
+	collisionScore.setPosition({ 325.f, 10.f });
+	collisionScore.setFillColor(Colors::Whitesmoke);
+	window.draw(collisionScore);
+
+	// run clock
+	float displayTime = puckLanded ? elapsedTime : runClock.getElapsedTime().asSeconds();
+	sf::Text elapsedTimeText(uiFont, "Time: " + std::to_string(displayTime), 18);
+	elapsedTimeText.setPosition({ 500.f, 10.f });
+	elapsedTimeText.setFillColor(Colors::Whitesmoke);
+	window.draw(elapsedTimeText);
+
+	// num connections
+	sf::Text connectionsText(uiFont, "Connections: " + std::to_string(grid.getNumConnections()), 18);
+	connectionsText.setPosition({ 325.f, 30.f });
+	connectionsText.setFillColor(Colors::Whitesmoke);
+	window.draw(connectionsText);
+}
+
+void Game::titleCreatedBy() {
+	// Title
+	sf::Text titleText(titleFont, "Puck Dropper", 86);
+	titleText.setPosition({ 100.f, 50.f });
+	titleText.setFillColor(sf::Color::Yellow);
+	titleText.setOutlineColor(sf::Color::Black);
+	titleText.setOutlineThickness(0.5);
+	window.draw(titleText);
+
+	// Created By
+	sf::Text createdByText(uiFont, "Created by Daniel Berlin, 2025", 16);
+	createdByText.setPosition({ 550.f, 700.f });
+	createdByText.setFillColor(Colors::Whitesmoke);
+	createdByText.setOutlineColor(sf::Color::Black);
+	createdByText.setOutlineThickness(0.5);
+	window.draw(createdByText);
+}
 
 //
 // UI initialization functions:
@@ -307,42 +338,7 @@ void Game::initUIButtons() {
 	initResetPuckButton();
 	// (Existing toggle button for FreeForm mode gets added only if applicable.)
 	if (currentMode == Mode::Free) {
-
-		toggleSegmentCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Line Collision: OFF", uiFont, [this]() {
-			toggleSegmentCollisionButton.toggled = !toggleSegmentCollisionButton.toggled;
-			allowSegmentCollision = toggleSegmentCollisionButton.toggled; // mirror that externally
-			std::string text = toggleSegmentCollisionButton.toggled ? "Line Collision: ON" : "Line Collision: OFF";
-			toggleSegmentCollisionButton.setText(text);
-			// Optionally update appearance here:
-			toggleSegmentCollisionButton.shape.setFillColor(toggleSegmentCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
-		});
-		toggleSegmentCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
-		uiManager.addButton(toggleSegmentCollisionButton);
-
-		toggleDotCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Dot Collision: OFF", uiFont, [this]() {
-			toggleDotCollisionButton.toggled = !toggleDotCollisionButton.toggled;
-			allowDotCollision = toggleDotCollisionButton.toggled; // mirror that externally
-			std::string text = toggleDotCollisionButton.toggled ? "Dot Collision: ON" : "Dot Collision: OFF";
-			toggleDotCollisionButton.setText(text);
-			// Optionally update appearance here:
-			toggleDotCollisionButton.shape.setFillColor(toggleDotCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
-			});
-		toggleDotCollisionButton.setPosition(sf::Vector2f(20.f, 200.f));
-		uiManager.addButton(toggleDotCollisionButton);
-
-		togglePuckBreakButton = Button(sf::Vector2(150.f, 40.f), "Puck Break: OFF", uiFont, [this]() {
-			togglePuckBreakButton.toggled = !togglePuckBreakButton.toggled;
-			allowPuckBreak = togglePuckBreakButton.toggled; // mirror that externally
-			std::string text = togglePuckBreakButton.toggled ? "Puck Break: ON" : "Puck Break: OFF";
-			togglePuckBreakButton.setText(text);
-			// Optionally update appearance here:
-			togglePuckBreakButton.shape.setFillColor(togglePuckBreakButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
-		});
-		togglePuckBreakButton.setPosition(sf::Vector2f(20.f, 250.f));
-		uiManager.addButton(togglePuckBreakButton);
-
-
-
+		freeModeButtons();
 	}
 	initReturnToMenuButton();
 
@@ -353,9 +349,45 @@ void Game::initUIButtons() {
 		startButton.setText("Running...");
 		startButton.shape.setFillColor(Colors::ForestGreen);
 	});
+
 	// Place the start button at an appropriate position (for example, next to Reset).
 	startButton.setPosition(sf::Vector2f(20.f, 70.f));
 	uiManager.addButton(startButton);
+}
+
+void Game::freeModeButtons() {
+	toggleSegmentCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Line Collision: OFF", uiFont, [this]() {
+		toggleSegmentCollisionButton.toggled = !toggleSegmentCollisionButton.toggled;
+		allowSegmentCollision = toggleSegmentCollisionButton.toggled; // mirror that externally
+		std::string text = toggleSegmentCollisionButton.toggled ? "Line Collision: ON" : "Line Collision: OFF";
+		toggleSegmentCollisionButton.setText(text);
+		// Optionally update appearance here:
+		toggleSegmentCollisionButton.shape.setFillColor(toggleSegmentCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+		});
+	toggleSegmentCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
+	uiManager.addButton(toggleSegmentCollisionButton);
+
+	toggleDotCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Dot Collision: OFF", uiFont, [this]() {
+		toggleDotCollisionButton.toggled = !toggleDotCollisionButton.toggled;
+		allowDotCollision = toggleDotCollisionButton.toggled; // mirror that externally
+		std::string text = toggleDotCollisionButton.toggled ? "Dot Collision: ON" : "Dot Collision: OFF";
+		toggleDotCollisionButton.setText(text);
+		// Optionally update appearance here:
+		toggleDotCollisionButton.shape.setFillColor(toggleDotCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+		});
+	toggleDotCollisionButton.setPosition(sf::Vector2f(20.f, 200.f));
+	uiManager.addButton(toggleDotCollisionButton);
+
+	togglePuckBreakButton = Button(sf::Vector2(150.f, 40.f), "Puck Break: OFF", uiFont, [this]() {
+		togglePuckBreakButton.toggled = !togglePuckBreakButton.toggled;
+		allowPuckBreak = togglePuckBreakButton.toggled; // mirror that externally
+		std::string text = togglePuckBreakButton.toggled ? "Puck Break: ON" : "Puck Break: OFF";
+		togglePuckBreakButton.setText(text);
+		// Optionally update appearance here:
+		togglePuckBreakButton.shape.setFillColor(togglePuckBreakButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
+		});
+	togglePuckBreakButton.setPosition(sf::Vector2f(20.f, 250.f));
+	uiManager.addButton(togglePuckBreakButton);
 }
 
 void Game::initResetGridButton() {
@@ -384,7 +416,7 @@ void Game::initReturnToMenuButton() {
 	returnToMenuButton = Button(sf::Vector2f(100.f, 40.f), "Menu", uiFont, [this]() {
 		enterMainMenu();
 	});
-	returnToMenuButton.setPosition(sf::Vector2f(20.f, 520.f));
+	returnToMenuButton.setPosition(sf::Vector2f(20.f, 720.f));
 	uiManager.addButton(returnToMenuButton);
 }
 
@@ -395,9 +427,19 @@ void Game::initMainMenuUI() {
 	mainMenuMusic.setLooping(true);
 	mainMenuMusic.play();
 
+	windowWidth = static_cast<float>(window.getSize().x);
+	windowHeight = static_cast<float>(window.getSize().y);
+
 	// Clear existing buttons from the UI.
 	uiManager.clearButtons();
 
+	menuUiContainer();
+	setBackground();
+	mainMenuButtons();
+
+}
+
+void Game::menuUiContainer() {
 	// --- CONTAINER SETUP ---
 	// Decide how big you want the container
 	float containerWidth = 300.f;
@@ -413,10 +455,11 @@ void Game::initMainMenuUI() {
 	// Center the container. We set the shape's origin to its midpoint,
 	// and then position it at the window center.
 	menuContainer.setOrigin({ containerWidth / 2.f, containerHeight / 2.f });
-	float windowWidth = static_cast<float>(window.getSize().x);
-	float windowHeight = static_cast<float>(window.getSize().y);
 	//menuContainer.setPosition({ windowWidth / 2.f, windowHeight / 2.f });
 	menuContainer.setPosition({ 400.f, 400.f });
+}
+
+void Game::setBackground() {
 
 	// Load the background image (menuBG.jpg).
 	if (!menuBackgroundTexture.loadFromFile("menuBG.jpg")) {
@@ -441,22 +484,25 @@ void Game::initMainMenuUI() {
 	float yOffset = (windowHeight - scaledHeight) / 2.f;
 	menuBackgroundSprite->setPosition({ 0.f, yOffset });
 
+}
+
+void Game::mainMenuButtons() {
 	// Initialize main menu buttons with updated naming conventions:
 	freeModeButton = Button(sf::Vector2f(200.f, 50.f), "Free Mode", uiFont, [this]() {
 		enterFreeFormMode();
-	});
+		});
 	freeModeButton.setPosition(sf::Vector2f(300.f, 300.f));
 	uiManager.addButton(freeModeButton);
 
 	scoringModeButton = Button(sf::Vector2f(200.f, 50.f), "Scoring Mode", uiFont, [this]() {
 		enterScoringMode();
-	});
+		});
 	scoringModeButton.setPosition(sf::Vector2f(300.f, 375.f));
 	uiManager.addButton(scoringModeButton);
 
 	rulesModeButton = Button(sf::Vector2f(200.f, 50.f), "About", uiFont, [this]() {
 		enterAboutMode();
-	});
+		});
 	rulesModeButton.setPosition(sf::Vector2f(300.f, 450.f));
 	uiManager.addButton(rulesModeButton);
 
@@ -466,7 +512,7 @@ void Game::initMainMenuUI() {
 		musicButton.toggled ? mainMenuMusic.setVolume(0.f) : mainMenuMusic.setVolume(100.f);
 		std::string text = musicButton.toggled ? "Music Off" : "Music On";
 		musicButton.setText(text);
-	});
+		});
 	musicButton.setPosition(sf::Vector2f(575.f, 600.f));
 	uiManager.addButton(musicButton);
 }
@@ -532,6 +578,9 @@ void Game::startSimulation() {
 	simulationStarted = true;
 }
 
+// 
+// SCORING
+//
 void Game::scoreCalculator(int score) {
 	totalScore += score;
 	int time = runClock.getElapsedTime().asMilliseconds();
@@ -563,4 +612,22 @@ std::string Game::scoreOutputText(int score, int timeBonus, int collisions, int 
 	output += "Total Score: " + std::to_string(totalScore);
 
 	return output;
+}
+
+void Game::displayScore() {
+	sf::RectangleShape scoreReadoutArea({ 250.f, 175.f });
+
+	scoreReadoutArea.setPosition({ 20.f, 510.f });
+	scoreReadoutArea.setFillColor(sf::Color::Transparent);
+	scoreReadoutArea.setOutlineColor(sf::Color::Cyan);
+	scoreReadoutArea.setOutlineThickness(1.f);
+
+	std::string scoreReadout = scoreOutputText(score, timeBonusMultiplier, puck.getCollisions(), grid.getNumConnections(), totalScore);
+	sf::Text scoreReadoutText(uiFont, scoreReadout, 16);
+	std::cout << scoreReadoutText.getString().toAnsiString() << "\n";
+	float padding = 20.f;
+	scoreReadoutText.setPosition({ scoreReadoutArea.getPosition().x + padding, scoreReadoutArea.getPosition().y + padding });
+
+	window.draw(scoreReadoutArea);
+	window.draw(scoreReadoutText);
 }
