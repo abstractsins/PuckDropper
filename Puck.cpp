@@ -4,8 +4,8 @@
 #include <iostream>
 #include <cmath>
 
-const float FALL_DISTANCE_THRESHOLD = 120.f;
-//const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
+//const float FALL_DISTANCE_THRESHOLD = 120.f;
+const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
 
 Puck::Puck(float radius, sf::Vector2f startPos) {
     shape.setRadius(radius);

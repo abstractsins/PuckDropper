@@ -43,7 +43,7 @@ void Game::run() {
 			if (!puckLanded) {
 				sf::Vector2f puckPos = puck.getPosition();
 				sf::Vector2f velocity = puck.getVelocity(); // assume you have this
-				std::cout << std::to_string(velocity.x) << " , " << std::to_string(velocity.y) << '\n';
+				//std::cout << std::to_string(velocity.x) << " , " << std::to_string(velocity.y) << '\n';
 
 				// Check if it's in the bucket region (y-position wise)
 				if (puckPos.y > grid.getDotPosition(0, grid.getRows() - 3).y) {
@@ -52,16 +52,17 @@ void Game::run() {
 						puckLanded = true;
 						puck.setFillColor(sf::Color::Green);
 						elapsedTime = runClock.getElapsedTime().asSeconds();
-						int col = grid.getColumnFromX(puckPos.x); // you may need to write this helper
+
+						int col = grid.getSlotIndexFromX(puckPos.x); // you may need to write this helper
 						std::cout << "Puck landed in column: " << col << "\n";
 
-						int score = grid.scoreValues[col];
-						totalScore += score;
-						std::cout << std::to_string(totalScore) << "\n\n";
+						score = grid.scoreValues[col];
+
+						scoreCalculator(score);
+
 					}
 				}
 			}
-
 		}
 
 		if (puck.broken()) { runClock.stop(); }
@@ -111,14 +112,15 @@ void Game::processEvents() {
 
 void Game::handleMouseClick(const sf::Vector2f& pos) {
 	std::cout << "\nMouse world pos: (" << pos.x << ", " << pos.y << ")\n";
-	if (currentMode == Mode::Scoring && running) {
-		// Don’t allow editing during scoring simulation
-		return;
-	}
+
 	if (uiManager.handleClick(pos)) {
 		return;
-	}
-	if (grid.handleClick(pos)) {
+	} 
+	//else if (currentMode == Mode::Scoring && running) {
+		// Don’t allow editing during scoring simulation
+		//return; // off for debug
+	//} 
+	else if (grid.handleClick(pos)) {
 		std::cout << "grid called\n";
 		return;
 	}
@@ -241,6 +243,24 @@ void Game::render() {
 		window.draw(connectionsText);
 
 		returnToMenuButton.draw(window);
+
+		if (puckLanded) {
+			sf::RectangleShape scoreReadoutArea({ 225.f, 175.f });
+
+			scoreReadoutArea.setPosition({ 20.f, 580.f });
+			scoreReadoutArea.setFillColor(sf::Color::Transparent);
+			scoreReadoutArea.setOutlineColor(sf::Color::Cyan);
+			scoreReadoutArea.setOutlineThickness(1.f);
+
+			std::string scoreReadout = scoreOutputText(score, timeBonusMultiplier, puck.getCollisions(), grid.getNumConnections(), totalScore);
+			sf::Text scoreReadoutText(uiFont, scoreReadout, 16);
+			std::cout << scoreReadoutText.getString().toAnsiString() << "\n";
+			float padding = 20.f;
+			scoreReadoutText.setPosition({ scoreReadoutArea.getPosition().x + padding, scoreReadoutArea.getPosition().y + padding });
+
+			window.draw(scoreReadoutArea);
+			window.draw(scoreReadoutText);
+		}
 	}
 
 	if (currentMode == Mode::Main) {
@@ -299,7 +319,7 @@ void Game::initUIButtons() {
 		toggleSegmentCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
 		uiManager.addButton(toggleSegmentCollisionButton);
 
-		toggleDotCollisionButton = Button(sf::Vector2(150.f, 40.f), "Dot Collision: OFF", uiFont, [this]() {
+		toggleDotCollisionButton = Button(sf::Vector2f(150.f, 40.f), "Dot Collision: OFF", uiFont, [this]() {
 			toggleDotCollisionButton.toggled = !toggleDotCollisionButton.toggled;
 			allowDotCollision = toggleDotCollisionButton.toggled; // mirror that externally
 			std::string text = toggleDotCollisionButton.toggled ? "Dot Collision: ON" : "Dot Collision: OFF";
@@ -510,4 +530,37 @@ void Game::gameReset(std::string resetType) {
 
 void Game::startSimulation() {
 	simulationStarted = true;
+}
+
+void Game::scoreCalculator(int score) {
+	totalScore += score;
+	int time = runClock.getElapsedTime().asMilliseconds();
+	timeBonusMultiplier = timeBonusCalculator(time);
+	totalScore *= timeBonusMultiplier;
+	totalScore -= grid.getNumConnections();
+	totalScore -= puck.getCollisions() * 4;
+	std::cout << "time: " << std::to_string(time) << "ms\n\n";
+	std::cout << "timeBonusPoints: " << std::to_string(timeBonusMultiplier) << "\n\n";
+	std::cout << std::to_string(totalScore) << "\n\n";
+}
+
+int Game::timeBonusCalculator(int timeMs) {
+	if (timeMs < 10000) return 7;
+	else if (timeMs < 15000) return 6;
+	else if (timeMs < 20000) return 5;
+	else if (timeMs < 25000) return 4;
+	else if (timeMs < 30000) return 3;
+	else return 1;
+}
+
+std::string Game::scoreOutputText(int score, int timeBonus, int collisions, int segments, int totalScore) {
+	std::string output;
+
+	output += "Score: " + std::to_string(score) + "...\n";
+	output += "Time Bonus: x" + std::to_string(timeBonus) + "...\n";
+	output += "Collisions Penalty: -" + std::to_string(collisions) + "...\n";
+	output += "Connections Penalty: -" + std::to_string(segments * 4) + "...\n\n";
+	output += "Total Score: " + std::to_string(totalScore);
+
+	return output;
 }

@@ -34,21 +34,18 @@ public:
 
     std::string modeToString(Mode mode) {
         switch (mode) {
-        case Mode::Main:
-            return "MainMenu";
-        case Mode::Free:
-            return "FreeForm";
-        case Mode::Scoring:
-            return "Scoring";
-        case Mode::About:
-            return "About";
-        default:
-            return "Unknown";
+            case Mode::Main: return "MainMenu";
+            case Mode::Free: return "FreeForm";
+            case Mode::Scoring: return "Scoring";
+            case Mode::About: return "About";
+            default: return "Unknown";
         }
     }
     
     void setFont(const sf::Font& newFont);
-    int getColumnFromX(float x) const;
+
+    int getSlotIndexFromX(float puckX) const;
+
     std::vector<int> scoreValues;
     int getNumConnections() { return numConnections; };
     void setNumConnections(int newNum) { numConnections = newNum; };
@@ -75,6 +72,9 @@ private:
     sf::Font font;
 
     std::vector<sf::Text> scoreTexts;
+
+    void addBottomBoundary();
+    void addSideBoundaries();
 
     int numConnections = 0;
 };

@@ -102,5 +102,12 @@ private:
     Puck puck;
     UIManager uiManager;
     
+    int score = 0;
     int totalScore = 0;
+    void scoreCalculator(int score);
+    int timeBonusCalculator(int timeMs);
+    int timeBonusMultiplier;
+
+    std::string scoreOutputText(int score, int timeBonus, int collisions, int segments, int totalScore);
+
 };

@@ -2,7 +2,6 @@
 #include "Colors.h"
 #include "Mode.h"
 #include <iostream>
-
 #include <string>
 
 
@@ -155,7 +154,6 @@ const Grid::Connection* Grid::getConnection(sf::Vector2i from, sf::Vector2i to) 
 	return nullptr;
 }
 
-
 void Grid::removeConnection(sf::Vector2i from, sf::Vector2i to) {
 	connections.erase(std::remove_if(connections.begin(), connections.end(),
 		[&](const Connection& conn) {
@@ -170,8 +168,21 @@ const std::vector<Grid::Connection>& Grid::getConnections() const {
 void Grid::resetGrid() {
 	// Clear any user-added or modified connections.
 	connections.clear();
-	setNumConnections(0);
+	setNumConnections(0); // update for scoring
 
+	// SIDES
+	addSideBoundaries();
+
+	// BOTTOM
+	if (currentMode == Mode::Scoring) {
+		addBottomBoundary();
+	}
+
+	// Optionally, clear any selection.
+	selectedDot.reset();
+}
+
+void Grid::addSideBoundaries() {
 	// Re-create the original left and right wall connections as defined in the constructor.
 	for (int y = 0; y < rows - 1; ++y) {
 		// Left wall: connection from (0, y) to (0, y + 1)
@@ -181,49 +192,45 @@ void Grid::resetGrid() {
 		int lastCol = cols - 1;
 		connections.push_back({ {lastCol, y}, {lastCol, y + 1}, false, Colors::DarkPurple });
 	}
+}
 
-	// BOTTOM
-	if (currentMode == Mode::Scoring) {
-		scoreTexts.clear();
+void Grid::addBottomBoundary() {
+	scoreTexts.clear();
 
-		scoreValues = { 0, 10, 50, 100, 200, 250, 500, 250, 200, 100, 50, 10, 0 };
+	scoreValues = { 10, 100, 500, 1000, 2000, 2500, 5000, 2500, 2000, 1000, 500, 100, 10 };
 
-		for (int x = 0; x < cols - 1; ++x) {
-			int lastRow = rows - 1;
-			connections.push_back({ {x, lastRow}, {x + 1, lastRow}, false, Colors::DarkPurple });
-		}
-
-		for (int x = 0; x < cols; ++x) {
-			int lastRow = rows - 1;
-			if (x > 0) {
-
-				if (x < cols - 1) {
-					connections.push_back({ {x, lastRow - 1}, {x, lastRow}, false, Colors::LightBlue });
-					connections.push_back({ {x, lastRow - 2}, {x, lastRow - 1}, false, Colors::LightBlue });
-				}
-
-				// Convert score into vertical string
-				std::string verticalText;
-				for (char c : std::to_string(scoreValues[x - 1])) {
-					verticalText += c;
-					verticalText += '\n';
-				}
-
-				// Create sf::Text object
-				sf::Text scoreText(font, verticalText, 12);
-				scoreText.setFillColor(sf::Color::White);
-
-				// Position below the bucket
-				sf::Vector2f dotPos = getDotPosition(x, lastRow);
-				scoreText.setPosition(dotPos + sf::Vector2f(-20.f, 8.f)); // Adjust for visual alignment
-
-				scoreTexts.push_back(scoreText);
-			}
-		}
+	for (int x = 0; x < cols - 1; ++x) {
+		int lastRow = rows - 1;
+		connections.push_back({ {x, lastRow}, {x + 1, lastRow}, false, Colors::DarkPurple });
 	}
 
-	// Optionally, clear any selection.
-	selectedDot.reset();
+	for (int x = 0; x < cols; ++x) {
+		int lastRow = rows - 1;
+		if (x > 0) {
+
+			if (x < cols - 1) {
+				connections.push_back({ {x, lastRow - 1}, {x, lastRow}, false, Colors::LightBlue });
+				connections.push_back({ {x, lastRow - 2}, {x, lastRow - 1}, false, Colors::LightBlue });
+			}
+
+			// Convert score into vertical string
+			std::string verticalText;
+			for (char c : std::to_string(scoreValues[x - 1])) {
+				verticalText += c;
+				verticalText += '\n';
+			}
+
+			// Create sf::Text object
+			sf::Text scoreText(font, verticalText, 12);
+			scoreText.setFillColor(sf::Color::White);
+
+			// Position below the bucket
+			sf::Vector2f dotPos = getDotPosition(x, lastRow);
+			scoreText.setPosition(dotPos + sf::Vector2f(-20.f, 8.f)); // Adjust for visual alignment
+
+			scoreTexts.push_back(scoreText);
+		}
+	}
 }
 
 void Grid::setMode(Mode newMode) {
@@ -234,15 +241,30 @@ void Grid::setFont(const sf::Font& newFont) {
 	font = newFont;
 }
 
-int Grid::getColumnFromX(float x) const {
-	float minDistance = FLT_MAX;
-	int closestCol = 0;
-	for (int col = 0; col < cols; ++col) {
-		float dx = std::abs(x - getDotPosition(col, 0).x);
-		if (dx < minDistance) {
-			minDistance = dx;
-			closestCol = col;
+int Grid::getSlotIndexFromX(float puckX) const
+{
+	// If the puck is to the left of the first column, return slot 0 by convention
+	float firstColX = getDotPosition(0, 0).x;
+	if (puckX < firstColX) {
+		return 0;
+	}
+
+	// If the puck is beyond the last column, clamp to the last gap (cols - 2)
+	float lastColX = getDotPosition(cols - 1, 0).x;
+	if (puckX >= lastColX) {
+		return cols - 2;
+	}
+
+	// Otherwise, loop to find which gap the puck is in:
+	for (int i = 0; i < cols - 1; ++i) {
+		float leftBoundary = getDotPosition(i, 0).x;
+		float rightBoundary = getDotPosition(i + 1, 0).x;
+
+		if (puckX >= leftBoundary && puckX < rightBoundary) {
+			return i;
 		}
 	}
-	return closestCol;
+
+	// Default case (should never happen):
+	return 0;
 }
