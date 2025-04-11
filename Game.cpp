@@ -68,7 +68,15 @@ void Game::run() {
 						scoreCalculator(score);
 						
 						auto bestScores = loadBestScores(filename);
-						updateBestScores("Hot Nickels", totalScore, bestScores);
+						if (isNewHighScore(totalScore, bestScores)) {
+							awaitingNameEntry = true;
+							newHighScoreAchieved = true;
+							pendingHighScore = totalScore;
+							pendingNameInput.clear();
+						}
+						else {
+							updateBestScores("Hot Nickels", totalScore, bestScores);
+						}
 
 					}
 				}
@@ -86,6 +94,30 @@ void Game::processEvents() {
 	uiManager.update(window);
 
 	while (auto event = window.pollEvent()) {
+
+		if (awaitingNameEntry) {
+			if (event->is<sf::Event::TextEntered>()) {
+				auto typed = event->getIf<sf::Event::TextEntered>();
+				if (typed) {
+					if (typed->unicode == '' && !pendingNameInput.empty()) {
+						pendingNameInput.pop_back();
+					}
+					else if (typed->unicode == '\r' || typed->unicode == '\n') {
+						if (pendingNameInput.size() == 0) {
+							pendingNameInput += "???";
+						}
+						auto bestScores = loadBestScores(filename);
+						updateBestScores(pendingNameInput, pendingHighScore, bestScores);
+						awaitingNameEntry = false;
+					}
+					else if (typed->unicode < 128 && std::isprint(typed->unicode)) {
+						if (pendingNameInput.size() < 12)
+							pendingNameInput += static_cast<char>(typed->unicode);
+					}
+				}
+			}
+			return; // skip normal game input
+		}
 
 		if (event->is<sf::Event::Closed>())
 			window.close();
@@ -204,7 +236,8 @@ void Game::render() {
 		}
 
 		if (currentMode == Mode::Scoring) {
-			displayTopScores();
+			auto scores = loadBestScores(filename);
+			displayTopScoresContainer(scores);
 		}
 
 		if (puck.broken()) {
@@ -224,15 +257,51 @@ void Game::render() {
 		// display rules
 	}
 
+	if (awaitingNameEntry) {
+		// Box backdrop
+		sf::RectangleShape promptContainer({ 350.f, 180.f });
+		promptContainer.setFillColor(sf::Color(0, 0, 0, 200));
+		promptContainer.setOutlineColor(sf::Color::Yellow);
+		promptContainer.setOutlineThickness(2.f);
+		promptContainer.setOrigin(promptContainer.getSize() / 2.f);
+		promptContainer.setPosition({ 450.f, 400.f });  // center of window
+
+		// Prompt (static part)
+		sf::Text promptText(titleFont, "New High Score!\nEnter your name:", 24);
+		promptText.setFillColor(sf::Color::White);
+		promptText.setOutlineColor(sf::Color::Black);
+		promptText.setOutlineThickness(1.f);
+
+		// Center horizontally in container
+		sf::FloatRect textBounds = promptText.getLocalBounds();
+		promptText.setOrigin({textBounds.size.x / 2.f, 0.f});  // center X only
+		promptText.setPosition({ promptContainer.getPosition().x, promptContainer.getPosition().y - 75.f });
+
+		// Input (dynamic part)
+		sf::Text userInputText(uiFont, pendingNameInput + "_", 28);
+		userInputText.setFillColor(sf::Color::Cyan);
+		userInputText.setOutlineColor(sf::Color::Black);
+		userInputText.setOutlineThickness(1.f);
+		userInputText.setStyle(sf::Text::Bold);
+		userInputText.setPosition({ promptContainer.getPosition().x - 60.f, promptContainer.getPosition().y + 25.f });
+
+		// Draw all
+		window.draw(promptContainer);
+		window.draw(promptText);
+		window.draw(userInputText);
+		window.display();
+		return;
+	}
+
 	window.display();
 }
 
-void Game::displayTopScores() {
-	sf::RectangleShape topScores({ 250.f, 380.f });
+void Game::displayTopScoresContainer(const std::vector<ScorePair>& scores) {
+	topScores.setSize({ 250.f, 350.f });
 	topScores.setFillColor(sf::Color::Transparent);
-	topScores.setOutlineColor(sf::Color::Yellow);
-	topScores.setOutlineThickness(1.f);
-	topScores.setPosition({ 20.f, 120.f });
+	topScores.setOutlineColor(sf::Color::Yellow); 
+	topScores.setOutlineThickness(1.f); 
+	topScores.setPosition({ 20.f, 150.f }); 
 
 	sf::Text topScoresTitle(titleFont, "Top Scores", 24);
 	topScoresTitle.setFillColor(sf::Color::Yellow);
@@ -242,8 +311,10 @@ void Game::displayTopScores() {
 	topScoresTitle.setOrigin(size / 2.f);
 	topScoresTitle.setPosition({ topScores.getPosition().x + topScores.getSize().x / 2.f, topScores.getPosition().y + 10.f });
 
-	window.draw(topScores);
+	window.draw(topScores); 
 	window.draw(topScoresTitle);
+	
+	displayBestScores(scores);
 }
 
 void Game::setupMainMenu() {
@@ -522,7 +593,7 @@ void Game::mainMenuButtons() {
 		musicButton.toggled ? mainMenuMusic.setVolume(0.f) : mainMenuMusic.setVolume(100.f);
 		std::string text = musicButton.toggled ? "Music Off" : "Music On";
 		musicButton.setText(text);
-		});
+	});
 	musicButton.setPosition(sf::Vector2f(575.f, 600.f));
 	uiManager.addButton(musicButton);
 }
@@ -633,7 +704,7 @@ void Game::displayScore() {
 	scoreReadoutArea.setOutlineThickness(1.f);
 
 	std::string scoreReadout = scoreOutputText(score, timeBonusMultiplier, puck.getCollisions(), grid.getNumConnections(), totalScore);
-	sf::Text scoreReadoutText(uiFont, scoreReadout, 16);
+	sf::Text scoreReadoutText(uiFont, scoreReadout, 18);
 	//std::cout << scoreReadoutText.getString().toAnsiString() << "\n";
 	float padding = 20.f;
 	scoreReadoutText.setPosition({ scoreReadoutArea.getPosition().x + padding, scoreReadoutArea.getPosition().y + padding });
@@ -660,6 +731,33 @@ void Game::updateBestScores(const std::string& playerName, int currentScore, std
 	// Save the updated scores
 	saveBestScores(bestScores, filename);
 }
+
+bool Game::isNewHighScore(int score, const std::vector<ScorePair>& scores) {
+	if (scores.size() < 10) return true;
+	return score > scores.back().second;
+}
+
+void Game::displayBestScores(const std::vector<ScorePair>& scores) {
+	std::string scoreListString;
+	for (int i = 0; i < scores.size(); ++i) {
+		const std::string& name = scores[i].first;
+		int score = scores[i].second;
+
+		scoreListString += std::to_string(i + 1); // index starts from 1
+		scoreListString += ": ";
+		scoreListString += name;
+		scoreListString += " - ";
+		scoreListString += std::to_string(score); // <-- fix: convert int to string
+		scoreListString += '\n';
+	}
+
+	sf::Text scoreListText(uiFont, scoreListString, 20);
+	scoreListText.setFillColor(sf::Color::White);
+
+	scoreListText.setPosition(topScores.getPosition() + sf::Vector2f(20.f, 40.f)); // indent slightly under title
+	window.draw(scoreListText);
+}
+
 
 void Game::saveBestScores(const std::vector<ScorePair>& scores, const std::string& filename) {
 	std::ofstream outFile(filename);

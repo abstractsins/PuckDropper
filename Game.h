@@ -134,4 +134,14 @@ private:
     void updateBestScores(const std::string& playerName, int currentScore, std::vector<ScorePair>& bestScores);
     std::vector<ScorePair> loadBestScores(const std::string& filename);
 
+    void displayTopScoresContainer(const std::vector<ScorePair>& scores);
+    void displayBestScores(const std::vector<ScorePair>& scores);
+
+    sf::RectangleShape topScores;
+
+    bool awaitingNameEntry = false;
+    bool newHighScoreAchieved = false;
+    int pendingHighScore = 0;
+    std::string pendingNameInput;
+    bool isNewHighScore(int score, const std::vector<ScorePair>& scores);
 };
