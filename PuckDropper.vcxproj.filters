@@ -68,5 +68,11 @@
     <ClInclude Include="Mode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ScoreEntry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="best_scores.txt" />
   </ItemGroup>
 </Project>

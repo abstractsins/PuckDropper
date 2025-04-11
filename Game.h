@@ -4,9 +4,12 @@
 #include <memory>
 #include "Grid.h"
 #include "Puck.h"
+#include "ScoreEntry.h"
 #include "UIManager.h"
 #include "Button.h"
 #include "Mode.h"
+
+using ScorePair = std::pair<std::string, int>;
 
 class Game {
 public:
@@ -16,6 +19,7 @@ public:
     void run();
 
 private:
+
     // Background image for the main menu
     sf::Texture menuBackgroundTexture;
     std::unique_ptr<sf::Sprite> menuBackgroundSprite;
@@ -124,7 +128,10 @@ private:
     int timeBonusMultiplier;
 
     std::string scoreOutputText(int score, int timeBonus, int collisions, int segments, int totalScore);
-
+    std::string filename = "best_scores.txt";
     void displayScore();
+    void saveBestScores(const std::vector<ScorePair>& scores, const std::string& filename);
+    void updateBestScores(const std::string& playerName, int currentScore, std::vector<ScorePair>& bestScores);
+    std::vector<ScorePair> loadBestScores(const std::string& filename);
 
 };

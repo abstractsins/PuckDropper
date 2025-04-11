@@ -158,7 +158,11 @@
     <ClInclude Include="Game.h" />
     <ClInclude Include="Mode.h" />
     <ClInclude Include="Puck.h" />
+    <ClInclude Include="ScoreEntry.h" />
     <ClInclude Include="UIManager.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="best_scores.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

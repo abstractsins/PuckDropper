@@ -2,9 +2,16 @@
 #include "UIManager.h"
 #include "Colors.h"
 #include "Mode.h"
+#include "ScoreEntry.h"
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <utility>
+#include <algorithm>
 
 
 Game::Game()
@@ -59,6 +66,9 @@ void Game::run() {
 						score = grid.scoreValues[col];
 
 						scoreCalculator(score);
+						
+						auto bestScores = loadBestScores(filename);
+						updateBestScores("Hot Nickels", totalScore, bestScores);
 
 					}
 				}
@@ -85,7 +95,7 @@ void Game::processEvents() {
 		}
 
 		if (event->is<sf::Event::KeyPressed>()) {
-			if (puck.broken()) {
+			if (puck.broken() || puckLanded) {
 				gameReset("soft");  // Reset the puck and grid as defined in Game::gameReset() 
 				continue;
 			}
@@ -121,11 +131,10 @@ void Game::handleMouseClick(const sf::Vector2f& pos) {
 		//return; // off for debug
 	//} 
 	else if (grid.handleClick(pos)) {
-		std::cout << "grid called\n";
+		//std::cout << "grid called\n";
 		return;
 	}
 }
-
 
 void Game::handleResize() {
 	// set screen size
@@ -203,6 +212,7 @@ void Game::render() {
 		} 
 		else if (puckLanded) {
 			displayScore();
+			promptToRetry();
 		}
 	}
 
@@ -588,9 +598,9 @@ void Game::scoreCalculator(int score) {
 	totalScore *= timeBonusMultiplier;
 	totalScore -= grid.getNumConnections();
 	totalScore -= puck.getCollisions() * 4;
-	std::cout << "time: " << std::to_string(time) << "ms\n\n";
-	std::cout << "timeBonusPoints: " << std::to_string(timeBonusMultiplier) << "\n\n";
-	std::cout << std::to_string(totalScore) << "\n\n";
+	//std::cout << "time: " << std::to_string(time) << "ms\n\n";
+	//std::cout << "timeBonusPoints: " << std::to_string(timeBonusMultiplier) << "\n\n";
+	//std::cout << std::to_string(totalScore) << "\n\n";
 }
 
 int Game::timeBonusCalculator(int timeMs) {
@@ -624,10 +634,67 @@ void Game::displayScore() {
 
 	std::string scoreReadout = scoreOutputText(score, timeBonusMultiplier, puck.getCollisions(), grid.getNumConnections(), totalScore);
 	sf::Text scoreReadoutText(uiFont, scoreReadout, 16);
-	std::cout << scoreReadoutText.getString().toAnsiString() << "\n";
+	//std::cout << scoreReadoutText.getString().toAnsiString() << "\n";
 	float padding = 20.f;
 	scoreReadoutText.setPosition({ scoreReadoutArea.getPosition().x + padding, scoreReadoutArea.getPosition().y + padding });
 
 	window.draw(scoreReadoutArea);
 	window.draw(scoreReadoutText);
+}
+
+
+void Game::updateBestScores(const std::string& playerName, int currentScore, std::vector<ScorePair>& bestScores) {
+	// Add the new entry
+	bestScores.push_back({ playerName, currentScore });
+
+	// Sort in descending order (highest scores first)
+	std::sort(bestScores.begin(), bestScores.end(), [](const ScorePair& a, const ScorePair& b) {
+		return a.second > b.second;
+		});
+
+	// Optionally, keep only the top 10 scores
+	if (bestScores.size() > 10) {
+		bestScores.resize(10);
+	}
+
+	// Save the updated scores
+	saveBestScores(bestScores, filename);
+}
+
+void Game::saveBestScores(const std::vector<ScorePair>& scores, const std::string& filename) {
+	std::ofstream outFile(filename);
+	if (!outFile) {
+		std::cerr << "Error opening file " << filename << " for writing.\n";
+		return;
+	}
+
+	// Write each pair as "name,score" on a separate line.
+	for (const auto& scoreEntry : scores) {
+		outFile << scoreEntry.first << "," << scoreEntry.second << "\n";
+	}
+	// The file is closed automatically when outFile goes out of scope.
+}
+
+std::vector<ScorePair> Game::loadBestScores(const std::string& filename) {
+	std::vector<ScorePair> scores;
+	std::ifstream inFile(filename);
+	if (!inFile) {
+		std::cerr << "File not found: " << filename << ". Returning an empty score list.\n";
+		return scores;  // Return an empty vector if the file doesn’t exist.
+	}
+
+	std::string line;
+	while (std::getline(inFile, line)) {
+		std::istringstream lineStream(line);
+		std::string name;
+		std::string scoreStr;
+
+		// Extract the name and score (using comma as delimiter)
+		if (std::getline(lineStream, name, ',') && std::getline(lineStream, scoreStr)) {
+			int score = std::stoi(scoreStr);
+			scores.push_back({ name, score });
+		}
+	}
+
+	return scores;
 }
