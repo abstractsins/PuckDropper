@@ -97,6 +97,7 @@ private:
     void initReturnToMenuButton();
     void freeModeButtons();
     void onScreenMetrics();
+    void initMusicButton();
 
     // Main Menu UI initialization:
     void initMainMenuUI();
@@ -144,4 +145,8 @@ private:
     int pendingHighScore = 0;
     std::string pendingNameInput;
     bool isNewHighScore(int score, const std::vector<ScorePair>& scores);
+
+    void displayRules();
+    void displayProjectDetails();
+    void aboutTextContainer();
 };

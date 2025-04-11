@@ -4,7 +4,6 @@
 #include <iostream>
 #include <string>
 
-
 Grid::Grid(int cols, int rows, float spacing, float dotRadius, sf::Vector2f screenSize, float padding, Mode mode)
 	: cols(cols), rows(rows), spacing(spacing), dotRadius(dotRadius)
 {

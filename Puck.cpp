@@ -3,9 +3,24 @@
 #include "Grid.h"
 #include <iostream>
 #include <cmath>
+#include <SFML/Audio.hpp>
 
-//const float FALL_DISTANCE_THRESHOLD = 120.f;
-const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
+//
+// SOUNDS
+// 
+// dot collision
+sf::SoundBuffer dotCollisionBuffer("collisionDot.ogg");
+sf::Sound dotCollisionSound(dotCollisionBuffer);
+// segment collision
+sf::SoundBuffer segmentCollisionBuffer("collisionSegment.ogg");
+sf::Sound segmentCollisonSound(segmentCollisionBuffer);
+// puck break
+sf::SoundBuffer puckBreakBuffer("puckBreak.ogg");
+sf::Sound puckBreakSound(puckBreakBuffer);
+
+
+const float FALL_DISTANCE_THRESHOLD = 120.f;
+//const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
 
 Puck::Puck(float radius, sf::Vector2f startPos) {
     shape.setRadius(radius);
@@ -43,6 +58,8 @@ void Puck::update(
             if (checkCollisionWithSegment(prevPos, nextPos, a, b, normal)) {
                 if (!puckLanded) {
                     numCollisions += 1;
+                    segmentCollisonSound.setVolume(10.f);
+                    segmentCollisonSound.play();
                 }
                 shape.setPosition(prevPos); // Rewind
                 velocity = velocity - 2.f * dot(velocity, normal) * normal; // Reflect
@@ -78,6 +95,8 @@ void Puck::update(
                     if (!puckLanded) {
                         collided = true;
                         numCollisions += 1;
+                        dotCollisionSound.setVolume(10.f);
+                        dotCollisionSound.play();
                     }
                     if (enablePuckBreak) breakHandler(lastCollisionY);
                     lastCollisionY = shape.getPosition().y;
@@ -94,6 +113,8 @@ void Puck::breakHandler(float lastCollisionY) {
     float fallDistance = shape.getPosition().y - lastCollisionY;
     if (fallDistance > FALL_DISTANCE_THRESHOLD) {
         breakPuck();
+        puckBreakSound.setVolume(20.f);
+        puckBreakSound.play();
     }
 }
 

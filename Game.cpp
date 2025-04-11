@@ -13,6 +13,15 @@
 #include <utility>
 #include <algorithm>
 
+//
+// SOUNDS
+// 
+// mode switch
+sf::SoundBuffer modeStartBuffer("modeStart.ogg");
+sf::Sound modeStartSound(modeStartBuffer);
+// puck land
+sf::SoundBuffer puckLandedBuffer("puckLanded.ogg");
+sf::Sound puckLandedSound(puckLandedBuffer);
 
 Game::Game()
 	: window(sf::VideoMode({ 800, 800 }), "Puck Dropper"),
@@ -58,6 +67,10 @@ void Game::run() {
 					if (std::abs(velocity.x) < 3 && std::abs(velocity.y) < 2) {
 						puckLanded = true;
 						puck.setFillColor(sf::Color::Green);
+
+						puckLandedSound.setVolume(50.f); 
+						puckLandedSound.play(); 
+
 						elapsedTime = runClock.getElapsedTime().asSeconds();
 
 						int col = grid.getSlotIndexFromX(puckPos.x); // you may need to write this helper
@@ -224,7 +237,7 @@ void Game::render() {
 		if (menuBackgroundSprite) {
 			window.draw(*menuBackgroundSprite);
 		}
-
+		initMusicButton();
 		titleCreatedBy();
 
 	}
@@ -254,13 +267,16 @@ void Game::render() {
 	} 
 	else if (currentMode == Mode::About) {
 		returnToMenuButton.draw(window);
+		aboutTextContainer();
+		displayRules();
+		displayProjectDetails();
 		// display rules
 	}
 
 	if (awaitingNameEntry) {
 		// Box backdrop
 		sf::RectangleShape promptContainer({ 350.f, 180.f });
-		promptContainer.setFillColor(sf::Color(0, 0, 0, 200));
+		promptContainer.setFillColor(sf::Color(0, 0, 0));
 		promptContainer.setOutlineColor(sf::Color::Yellow);
 		promptContainer.setOutlineThickness(2.f);
 		promptContainer.setOrigin(promptContainer.getSize() / 2.f);
@@ -323,9 +339,6 @@ void Game::setupMainMenu() {
 	freeModeButton.draw(window);
 	scoringModeButton.draw(window);
 	rulesModeButton.draw(window);
-	musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
-	musicButton.draw(window);
-	musicButton.setFillColor(musicButton.hover ? sf::Color::Cyan : sf::Color::Black);
 }
 
 void Game::allModesElements() {
@@ -388,7 +401,7 @@ void Game::titleCreatedBy() {
 
 	// Created By
 	sf::Text createdByText(uiFont, "Created by Daniel Berlin, 2025", 16);
-	createdByText.setPosition({ 550.f, 700.f });
+	createdByText.setPosition({ 550.f, 750.f });
 	createdByText.setFillColor(Colors::Whitesmoke);
 	createdByText.setOutlineColor(sf::Color::Black);
 	createdByText.setOutlineThickness(0.5);
@@ -444,7 +457,7 @@ void Game::freeModeButtons() {
 		toggleSegmentCollisionButton.setText(text);
 		// Optionally update appearance here:
 		toggleSegmentCollisionButton.shape.setFillColor(toggleSegmentCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
-		});
+	});
 	toggleSegmentCollisionButton.setPosition(sf::Vector2f(20.f, 150.f));
 	uiManager.addButton(toggleSegmentCollisionButton);
 
@@ -455,7 +468,7 @@ void Game::freeModeButtons() {
 		toggleDotCollisionButton.setText(text);
 		// Optionally update appearance here:
 		toggleDotCollisionButton.shape.setFillColor(toggleDotCollisionButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
-		});
+	});
 	toggleDotCollisionButton.setPosition(sf::Vector2f(20.f, 200.f));
 	uiManager.addButton(toggleDotCollisionButton);
 
@@ -466,7 +479,7 @@ void Game::freeModeButtons() {
 		togglePuckBreakButton.setText(text);
 		// Optionally update appearance here:
 		togglePuckBreakButton.shape.setFillColor(togglePuckBreakButton.toggled ? Colors::LemonYellow : Colors::Whitesmoke);
-		});
+	});
 	togglePuckBreakButton.setPosition(sf::Vector2f(20.f, 250.f));
 	uiManager.addButton(togglePuckBreakButton);
 }
@@ -594,7 +607,7 @@ void Game::mainMenuButtons() {
 		std::string text = musicButton.toggled ? "Music Off" : "Music On";
 		musicButton.setText(text);
 	});
-	musicButton.setPosition(sf::Vector2f(575.f, 600.f));
+	musicButton.setPosition(sf::Vector2f(575.f, 650.f));
 	uiManager.addButton(musicButton);
 }
 
@@ -605,6 +618,8 @@ void Game::mainMenuButtons() {
 //
 void Game::enterFreeFormMode() {
 	mainMenuMusic.stop();
+	modeStartSound.setVolume(20.f);
+	modeStartSound.play();
 	// Remove main menu buttons.
 	uiManager.clearButtons();
 	currentMode = Mode::Free;
@@ -618,6 +633,8 @@ void Game::enterFreeFormMode() {
 
 void Game::enterScoringMode() {
 	mainMenuMusic.stop();
+	modeStartSound.setVolume(20.f);
+	modeStartSound.play();
 	uiManager.clearButtons();
 	currentMode = Mode::Scoring;
 	grid.setMode(Mode::Scoring);
@@ -632,6 +649,7 @@ void Game::enterAboutMode() {
 	uiManager.clearButtons();
 	currentMode = Mode::About;
 	initUIButtons();
+	uiManager.addButton(musicButton);
 }
 
 void Game::enterMainMenu() {
@@ -795,4 +813,58 @@ std::vector<ScorePair> Game::loadBestScores(const std::string& filename) {
 	}
 
 	return scores;
+}
+
+void Game::aboutTextContainer() {
+	sf::RectangleShape container({ 700.f, 450.f });
+	container.setFillColor(sf::Color(0, 0, 0, 150));
+	container.setOutlineColor(sf::Color::Yellow);
+	container.setOutlineThickness(3.f);
+	container.setOrigin({ container.getSize().x / 2.f, container.getSize().y / 2.f });
+	container.setPosition({ window.getSize().x / 2.f, window.getSize().x / 2.f });
+	window.draw(container);
+}
+
+void Game::displayRules() {
+
+	std::string rulesString;
+	rulesString += "Drop the puck and land it in a high-value bucket using as few segments as possible.\n";
+	rulesString += "Click between dots to build segments. The puck bounces off segments and dots.\n";
+	rulesString += "If the puck falls too far without a bounce, it breaks.\n";
+	rulesString += "Bonus for time. Penalties for segments and collisions.\n";
+
+	sf::Text rulesTitle(titleFont, "RULES", 32);
+	rulesTitle.setOrigin({ rulesTitle.getLocalBounds().size.x / 2.f, rulesTitle.getLocalBounds().size.y / 2.f });
+	rulesTitle.setPosition({ window.getSize().x / 2.f, 200.f });
+	window.draw(rulesTitle);
+
+	// Bold "Goal:"
+	sf::Text goalLabel(uiFont, "Goal: ", 16);
+	goalLabel.setStyle(sf::Text::Bold);
+	goalLabel.setPosition({ 100.f, 240.f }); // Adjust to your layout
+	goalLabel.setFillColor(sf::Color::White);
+	window.draw(goalLabel);
+
+	// Rest of the sentence
+	sf::Text goalText(uiFont, rulesString, 16);
+	goalText.setPosition({ goalLabel.getPosition().x + goalLabel.getLocalBounds().size.x, goalLabel.getPosition().y });
+	goalText.setFillColor(sf::Color::White);
+	window.draw(goalText);
+
+}
+
+void Game::displayProjectDetails() {
+	sf::Text storyTitle(titleFont, "STORY", 32);
+
+	storyTitle.setOrigin({ storyTitle.getLocalBounds().size.x / 2.f, storyTitle.getLocalBounds().size.y / 2.f });
+	storyTitle.setPosition({ window.getSize().x / 2.f, 350.f });
+	window.draw(storyTitle);
+
+	std::string story;
+
+}
+
+void Game::initMusicButton() {
+	musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);
+	musicButton.draw(window);
 }
