@@ -22,12 +22,13 @@ sf::Sound puckBreakSound(puckBreakBuffer);
 const float FALL_DISTANCE_THRESHOLD = 120.f;
 //const float FALL_DISTANCE_THRESHOLD = 12000.f; // debug
 
-Puck::Puck(float radius, sf::Vector2f startPos) {
+Puck::Puck(float radius, sf::Vector2f startPos)
+    : velocity(0.f, 0.f), isBroken(false), numCollisions(0)
+{
     shape.setRadius(radius);
     shape.setFillColor(sf::Color::White);
     shape.setOrigin(sf::Vector2f{ radius, radius });
     shape.setPosition(startPos);
-    numCollisions = 0;
 }
 
 void Puck::draw(sf::RenderWindow& window) const {
@@ -106,17 +107,6 @@ void Puck::update(
     }
 
     shape.move(velocity * dt);
-
-    // Threshold to stop vibrating
-    //!!!
-    std::cout << std::to_string(std::abs(velocity.y)) << '\n';
-    std::cout << std::to_string(getPosition().x) << '\n\n';
-    const float minVelocityThreshold = 1.f;
-    if (std::abs(velocity.x) < minVelocityThreshold) velocity.x = 0.f;
-    if (std::abs(velocity.y) < minVelocityThreshold) velocity.y = 0.f;
-    if (velocity.x == 0.f && velocity.y == 0.f) {
-        puckIsStill = true;
-    }
 }
 
 

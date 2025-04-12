@@ -42,45 +42,40 @@ Game::Game()
 }
 
 void Game::run() {
-	const float fixedDt = 1.f / 60.f; // 60 FPS timestep
-	float accumulator = 0.f;
-
-	sf::Clock frameClock;
-
 	while (window.isOpen()) {
-		float dt = frameClock.restart().asSeconds();
-		if (dt > 0.25f) dt = 0.25f; // clamp if system stalls or window is moved
-		accumulator += dt;
-
+		float dt = clock.restart().asSeconds();
+		const float maxDt = 0.03f; // or even 0.03f
+		dt = std::min(dt, maxDt);
 		processEvents();
 
-		while (accumulator >= fixedDt) {
-			// Physics update
-			if (currentMode != Mode::Main && currentMode != Mode::About && simulationStarted) {
-				puck.update(fixedDt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak, puckLanded);
-				if (isPuckOutOfBounds()) {
-					puck.reset(startingPos);
-					runClock.restart();
-				}
+		// Only update the puck if the simulation has started.
+		if (currentMode != Mode::Main && currentMode != Mode::About && simulationStarted) {
+			puck.update(dt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak, puckLanded);
+			if (isPuckOutOfBounds() == true) {
+				puck.reset(startingPos);
+				runClock.restart();
 			}
+		}
 
-			// Scoring logic (only once per frame still fine)
-			if (currentMode == Mode::Scoring && !puckLanded) {
+		if (currentMode == Mode::Scoring) {
+			if (!puckLanded) {
 				sf::Vector2f puckPos = puck.getPosition();
-				sf::Vector2f velocity = puck.getVelocity();
+				sf::Vector2f velocity = puck.getVelocity(); // assume you have this
+				//std::cout << std::to_string(velocity.x) << " , " << std::to_string(velocity.y) << '\n';
 
+				// Check if it's in the bucket region (y-position wise)
 				if (puckPos.y > grid.getDotPosition(0, grid.getRows() - 3).y) {
+					// Check if it's basically stopped
 					if (std::abs(velocity.x) < 3 && std::abs(velocity.y) < 2) {
 						puckLanded = true;
 						puck.setFillColor(sf::Color::Green);
-						puckLandedSound.setVolume(50.f);
-						puckLandedSound.play();
 						elapsedTime = runClock.getElapsedTime().asSeconds();
 
-						int col = grid.getSlotIndexFromX(puckPos.x);
+						int col = grid.getSlotIndexFromX(puckPos.x); // you may need to write this helper
 						std::cout << "Puck landed in column: " << col << "\n";
 
 						score = grid.scoreValues[col];
+
 						scoreCalculator(score);
 
 						auto bestScores = loadBestScores(filename);
@@ -93,21 +88,17 @@ void Game::run() {
 						else {
 							updateBestScores("Hot Nickels", totalScore, bestScores);
 						}
+
 					}
 				}
 			}
-
-			if (puck.broken()) {
-				runClock.stop();
-			}
-
-			accumulator -= fixedDt;
 		}
+
+		if (puck.broken()) { runClock.stop(); }
 
 		render();
 	}
 }
-
 
 void Game::processEvents() {
 	uiManager.update(window);
@@ -245,9 +236,6 @@ void Game::render() {
 		}
 		initMusicButton();
 		titleCreatedBy();
-		if (puck.getPuckIsStill() && !puckLanded && running) {
-			puck.breakPuck();
-		}
 	}
 	else {
 		allModesElements();

@@ -20,7 +20,6 @@ public:
     int getCollisions() const { return numCollisions; };
     sf::Vector2f getVelocity() const;
     void setFillColor(sf::Color newColor);
-    bool getPuckIsStill() { return puckIsStill; };
 
     // Helper function to mark the puck as broken.
     void breakPuck();
@@ -36,7 +35,5 @@ private:
     void breakHandler(float lastCollisionY);
 
     int numCollisions;
-
-    bool puckIsStill;
 
 };
