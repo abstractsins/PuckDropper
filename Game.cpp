@@ -68,6 +68,8 @@ void Game::run() {
 					// Check if it's basically stopped
 					if (std::abs(velocity.x) < 3 && std::abs(velocity.y) < 2) {
 						puckLanded = true;
+						puckLandedSound.setVolume(60.f);
+						puckLandedSound.play();
 						puck.setFillColor(sf::Color::Green);
 						elapsedTime = runClock.getElapsedTime().asSeconds();
 
@@ -266,7 +268,6 @@ void Game::render() {
 		aboutTextContainer();
 		displayRules();
 		displayProjectDetails();
-		// display rules
 	}
 
 	if (awaitingNameEntry) {
@@ -389,7 +390,7 @@ void Game::onScreenMetrics() {
 void Game::titleCreatedBy() {
 	// Title
 	sf::Text titleText(titleFont, "Puck Dropper", 86);
-	titleText.setPosition({ 100.f, 50.f });
+	titleText.setPosition({ 100.f, 25.f });
 	titleText.setFillColor(sf::Color::Yellow);
 	titleText.setOutlineColor(sf::Color::Black);
 	titleText.setOutlineThickness(0.5);
@@ -694,6 +695,7 @@ int Game::timeBonusCalculator(int timeMs) {
 	else if (timeMs < 20000) return 5;
 	else if (timeMs < 25000) return 4;
 	else if (timeMs < 30000) return 3;
+	else if (timeMs < 35000) return 2;
 	else return 1;
 }
 
@@ -812,20 +814,23 @@ std::vector<ScorePair> Game::loadBestScores(const std::string& filename) {
 }
 
 void Game::aboutTextContainer() {
-	windowWidth = static_cast<float>(window.getSize().x);
-	windowHeight = static_cast<float>(window.getSize().y);
+	sf::Vector2u size = window.getSize();
 	sf::RectangleShape container({ 700.f, 460.f });
+
 	container.setFillColor(sf::Color(0, 0, 0, 150));
 	container.setOutlineColor(Colors::Whitesmoke);
 	container.setOutlineThickness(3.f);
-	container.setOrigin({ container.getSize().x / 2.f, container.getSize().y / 2.f });
-	container.setPosition({ window.getSize().x / 2.f, window.getSize().x / 2.f });
+	
+	container.setOrigin({container.getSize().x / 2.f, container.getSize().y / 2.f });
+	// container.setPosition({ size.x / 2.f, size.y / 2.f });
+	container.setPosition({ view.getCenter().x, view.getCenter().y + 100.f });
+
 	window.draw(container);
 }
 
+
 void Game::displayRules() {
-	windowWidth = static_cast<float>(window.getSize().x);
-	windowHeight = static_cast<float>(window.getSize().y);
+	auto size = window.getSize();
 
 	std::string rulesString;
 	rulesString += "Drop the puck and land it in a high-value bucket using as few segments as possible.\n\n";
@@ -834,46 +839,47 @@ void Game::displayRules() {
 	rulesString += " Bonus for time. Penalties for segments and collisions.\n";
 
 	sf::Text rulesTitle(titleFont, "RULES", 32);
-	rulesTitle.setOrigin({ rulesTitle.getLocalBounds().size.x / 2.f, rulesTitle.getLocalBounds().size.y / 2.f });
-	rulesTitle.setPosition({ window.getSize().x / 2.f, 185.f });
+	sf::FloatRect titleBounds = rulesTitle.getLocalBounds();
+	rulesTitle.setOrigin({ titleBounds.size.x / 2.f, titleBounds.size.y / 2.f });
+	rulesTitle.setPosition({ view.getCenter().x, view.getCenter().y - 110.f });
+	rulesTitle.setFillColor(sf::Color::White);
 	window.draw(rulesTitle);
 
-	// Bold "Goal:"
 	sf::Text goalLabel(uiFont, "Goal:\n\nHow:\n\n\nScore:", 16);
 	goalLabel.setStyle(sf::Text::Bold);
-	goalLabel.setPosition({ 100.f, 220.f }); // Adjust to your layout
 	goalLabel.setFillColor(sf::Color::White);
+	goalLabel.setPosition({ 100.f, 220.f });
 	window.draw(goalLabel);
 
-	// Rest of the sentence
 	sf::Text goalText(uiFont, rulesString, 16);
-	goalText.setPosition({ goalLabel.getPosition().x + goalLabel.getLocalBounds().size.x, goalLabel.getPosition().y });
 	goalText.setFillColor(sf::Color::White);
+	goalText.setPosition({ goalLabel.getPosition().x + goalLabel.getLocalBounds().size.x + 10.f, goalLabel.getPosition().y });
 	window.draw(goalText);
-
 }
 
+
 void Game::displayProjectDetails() {
-	windowWidth = static_cast<float>(window.getSize().x);
-	windowHeight = static_cast<float>(window.getSize().y);
+	auto size = window.getSize();
 
 	std::string storyString;
 	storyString += "Puck Dropper is my first C++ project, built in just 2 weeks. It uses real-time physics-based\nmovement, custom classes, scoring, and user input.\n\n";
 	storyString += "Puck Dropper is built in C++ with SFML 3.0. I relied on resources, including: Codecademy, Source\nDocumentation, ChatGPT, Google, and Stack Overflow\n\n";
 	storyString += "I built this as a portfolio piece to showcase my ability to carry a project from concept to\ncompletion as well as what I can learn to build from scratch with just curiosity and coffee.\n\n";
 	storyString += "Music by Twistedloop, Sounds by Kenney.nl";
-	sf::Text storyText(uiFont, storyString, 16);
 
 	sf::Text storyTitle(titleFont, "STORY", 32);
-
-	storyTitle.setOrigin({ storyTitle.getLocalBounds().size.x / 2.f, storyTitle.getLocalBounds().size.y / 2.f });
-	storyTitle.setPosition({ windowWidth / 2.f, 385.f });
-	storyText.setPosition({ 100.f , storyTitle.getPosition().y + 32.5f });
-
+	sf::FloatRect titleBounds = storyTitle.getLocalBounds();
+	storyTitle.setOrigin({ titleBounds.size.x / 2.f, titleBounds.size.y / 2.f });
+	storyTitle.setPosition({ view.getCenter().x, view.getCenter().y + 75.f });
+	storyTitle.setFillColor(sf::Color::White);
 	window.draw(storyTitle);
-	window.draw(storyText);
 
+	sf::Text storyText(uiFont, storyString, 16);
+	storyText.setFillColor(sf::Color::White);
+	storyText.setPosition({ 100.f , storyTitle.getPosition().y + 32.5f });
+	window.draw(storyText);
 }
+
 
 void Game::initMusicButton() {
 	musicButton.shape.setFillColor(musicButton.toggled ? Colors::Whitesmoke : Colors::LemonYellow);

@@ -149,4 +149,7 @@ private:
     void displayRules();
     void displayProjectDetails();
     void aboutTextContainer();
+
+    void updateAboutLayout();
+
 };
