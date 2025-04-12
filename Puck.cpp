@@ -106,6 +106,17 @@ void Puck::update(
     }
 
     shape.move(velocity * dt);
+
+    // Threshold to stop vibrating
+    //!!!
+    std::cout << std::to_string(std::abs(velocity.y)) << '\n';
+    std::cout << std::to_string(getPosition().x) << '\n\n';
+    const float minVelocityThreshold = 1.f;
+    if (std::abs(velocity.x) < minVelocityThreshold) velocity.x = 0.f;
+    if (std::abs(velocity.y) < minVelocityThreshold) velocity.y = 0.f;
+    if (velocity.x == 0.f && velocity.y == 0.f) {
+        puckIsStill = true;
+    }
 }
 
 
@@ -167,4 +178,10 @@ sf::Vector2f Puck::getVelocity() const {
 
 void Puck::setFillColor(sf::Color newColor) {
     shape.setFillColor(newColor);
+}
+
+void Puck::breakPuck() {
+    isBroken = true;
+    // Change color to give visual feedback; you could also call a shatter effect.
+    shape.setFillColor(sf::Color::Red);
 }

@@ -39,9 +39,6 @@
     <ClCompile Include="EventHandling.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Buckets.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h">
@@ -57,12 +54,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UIManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Buckets.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Bucket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Mode.h">

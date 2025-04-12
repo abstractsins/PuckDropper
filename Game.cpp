@@ -42,44 +42,47 @@ Game::Game()
 }
 
 void Game::run() {
+	const float fixedDt = 1.f / 60.f; // 60 FPS timestep
+	float accumulator = 0.f;
+
+	sf::Clock frameClock;
+
 	while (window.isOpen()) {
-		float dt = clock.restart().asSeconds();
+		float dt = frameClock.restart().asSeconds();
+		if (dt > 0.25f) dt = 0.25f; // clamp if system stalls or window is moved
+		accumulator += dt;
+
 		processEvents();
 
-		// Only update the puck if the simulation has started.
-		if (currentMode != Mode::Main && currentMode != Mode::About && simulationStarted) {
-			puck.update(dt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak, puckLanded);
-			if (isPuckOutOfBounds() == true) {
-				puck.reset(startingPos);
-				runClock.restart();
+		while (accumulator >= fixedDt) {
+			// Physics update
+			if (currentMode != Mode::Main && currentMode != Mode::About && simulationStarted) {
+				puck.update(fixedDt, grid, allowSegmentCollision, allowDotCollision, allowPuckBreak, puckLanded);
+				if (isPuckOutOfBounds()) {
+					puck.reset(startingPos);
+					runClock.restart();
+				}
 			}
-		}
 
-		if (currentMode == Mode::Scoring) {
-			if (!puckLanded) {
+			// Scoring logic (only once per frame still fine)
+			if (currentMode == Mode::Scoring && !puckLanded) {
 				sf::Vector2f puckPos = puck.getPosition();
-				sf::Vector2f velocity = puck.getVelocity(); // assume you have this
-				//std::cout << std::to_string(velocity.x) << " , " << std::to_string(velocity.y) << '\n';
+				sf::Vector2f velocity = puck.getVelocity();
 
-				// Check if it's in the bucket region (y-position wise)
 				if (puckPos.y > grid.getDotPosition(0, grid.getRows() - 3).y) {
-					// Check if it's basically stopped
 					if (std::abs(velocity.x) < 3 && std::abs(velocity.y) < 2) {
 						puckLanded = true;
 						puck.setFillColor(sf::Color::Green);
-
-						puckLandedSound.setVolume(50.f); 
-						puckLandedSound.play(); 
-
+						puckLandedSound.setVolume(50.f);
+						puckLandedSound.play();
 						elapsedTime = runClock.getElapsedTime().asSeconds();
 
-						int col = grid.getSlotIndexFromX(puckPos.x); // you may need to write this helper
+						int col = grid.getSlotIndexFromX(puckPos.x);
 						std::cout << "Puck landed in column: " << col << "\n";
 
 						score = grid.scoreValues[col];
-
 						scoreCalculator(score);
-						
+
 						auto bestScores = loadBestScores(filename);
 						if (isNewHighScore(totalScore, bestScores)) {
 							awaitingNameEntry = true;
@@ -90,13 +93,16 @@ void Game::run() {
 						else {
 							updateBestScores("Hot Nickels", totalScore, bestScores);
 						}
-
 					}
 				}
 			}
-		}
 
-		if (puck.broken()) { runClock.stop(); }
+			if (puck.broken()) {
+				runClock.stop();
+			}
+
+			accumulator -= fixedDt;
+		}
 
 		render();
 	}
@@ -171,10 +177,10 @@ void Game::handleMouseClick(const sf::Vector2f& pos) {
 	if (uiManager.handleClick(pos)) {
 		return;
 	} 
-	//else if (currentMode == Mode::Scoring && running) {
-		// Don’t allow editing during scoring simulation
-		//return; // off for debug
-	//} 
+	else if (currentMode == Mode::Scoring && running) {
+		 //Don’t allow editing during scoring simulation
+		return; // off for debug
+	} 
 	else if (grid.handleClick(pos)) {
 		//std::cout << "grid called\n";
 		return;
@@ -239,7 +245,9 @@ void Game::render() {
 		}
 		initMusicButton();
 		titleCreatedBy();
-
+		if (puck.getPuckIsStill() && !puckLanded && running) {
+			puck.breakPuck();
+		}
 	}
 	else {
 		allModesElements();
@@ -816,9 +824,11 @@ std::vector<ScorePair> Game::loadBestScores(const std::string& filename) {
 }
 
 void Game::aboutTextContainer() {
-	sf::RectangleShape container({ 700.f, 450.f });
+	windowWidth = static_cast<float>(window.getSize().x);
+	windowHeight = static_cast<float>(window.getSize().y);
+	sf::RectangleShape container({ 700.f, 460.f });
 	container.setFillColor(sf::Color(0, 0, 0, 150));
-	container.setOutlineColor(sf::Color::Yellow);
+	container.setOutlineColor(Colors::Whitesmoke);
 	container.setOutlineThickness(3.f);
 	container.setOrigin({ container.getSize().x / 2.f, container.getSize().y / 2.f });
 	container.setPosition({ window.getSize().x / 2.f, window.getSize().x / 2.f });
@@ -826,22 +836,24 @@ void Game::aboutTextContainer() {
 }
 
 void Game::displayRules() {
+	windowWidth = static_cast<float>(window.getSize().x);
+	windowHeight = static_cast<float>(window.getSize().y);
 
 	std::string rulesString;
-	rulesString += "Drop the puck and land it in a high-value bucket using as few segments as possible.\n";
+	rulesString += "Drop the puck and land it in a high-value bucket using as few segments as possible.\n\n";
 	rulesString += "Click between dots to build segments. The puck bounces off segments and dots.\n";
-	rulesString += "If the puck falls too far without a bounce, it breaks.\n";
-	rulesString += "Bonus for time. Penalties for segments and collisions.\n";
+	rulesString += "If the puck falls too far without a bounce, it breaks.\n\n";
+	rulesString += " Bonus for time. Penalties for segments and collisions.\n";
 
 	sf::Text rulesTitle(titleFont, "RULES", 32);
 	rulesTitle.setOrigin({ rulesTitle.getLocalBounds().size.x / 2.f, rulesTitle.getLocalBounds().size.y / 2.f });
-	rulesTitle.setPosition({ window.getSize().x / 2.f, 200.f });
+	rulesTitle.setPosition({ window.getSize().x / 2.f, 185.f });
 	window.draw(rulesTitle);
 
 	// Bold "Goal:"
-	sf::Text goalLabel(uiFont, "Goal: ", 16);
+	sf::Text goalLabel(uiFont, "Goal:\n\nHow:\n\n\nScore:", 16);
 	goalLabel.setStyle(sf::Text::Bold);
-	goalLabel.setPosition({ 100.f, 240.f }); // Adjust to your layout
+	goalLabel.setPosition({ 100.f, 220.f }); // Adjust to your layout
 	goalLabel.setFillColor(sf::Color::White);
 	window.draw(goalLabel);
 
@@ -854,13 +866,24 @@ void Game::displayRules() {
 }
 
 void Game::displayProjectDetails() {
+	windowWidth = static_cast<float>(window.getSize().x);
+	windowHeight = static_cast<float>(window.getSize().y);
+
+	std::string storyString;
+	storyString += "Puck Dropper is my first C++ project, built in just 2 weeks. It uses real-time physics-based\nmovement, custom classes, scoring, and user input.\n\n";
+	storyString += "Puck Dropper is built in C++ with SFML 3.0. I relied on resources, including: Codecademy, Source\nDocumentation, ChatGPT, Google, and Stack Overflow\n\n";
+	storyString += "I built this as a portfolio piece to showcase my ability to carry a project from concept to\ncompletion as well as what I can learn to build from scratch with just curiosity and coffee.\n\n";
+	storyString += "Music by Twistedloop, Sounds by Kenney.nl";
+	sf::Text storyText(uiFont, storyString, 16);
+
 	sf::Text storyTitle(titleFont, "STORY", 32);
 
 	storyTitle.setOrigin({ storyTitle.getLocalBounds().size.x / 2.f, storyTitle.getLocalBounds().size.y / 2.f });
-	storyTitle.setPosition({ window.getSize().x / 2.f, 350.f });
-	window.draw(storyTitle);
+	storyTitle.setPosition({ windowWidth / 2.f, 385.f });
+	storyText.setPosition({ 100.f , storyTitle.getPosition().y + 32.5f });
 
-	std::string story;
+	window.draw(storyTitle);
+	window.draw(storyText);
 
 }
 

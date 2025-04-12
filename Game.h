@@ -14,6 +14,7 @@ using ScorePair = std::pair<std::string, int>;
 class Game {
 public:
     Mode getCurrentMode() { return currentMode; };
+    bool getRunning() { return running; };
 
     Game();
     void run();
@@ -86,7 +87,6 @@ private:
     void freeModeOptions();
     void allModesElements();
     void setupMainMenu();
-    void displayTopScores();
 
     // UI initialization functions:
     void initUI();
